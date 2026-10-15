@@ -1,0 +1,86 @@
+{
+  "query_city": "Eldoret",
+  "country_code": "KE",
+  "coordinates": {
+    "latitude": 0.5204,
+    "longitude": 35.2699
+  },
+  "current_weather": {
+    "coord": {
+      "lon": 35.2699,
+      "lat": 0.5204
+    },
+    "weather": [
+      {
+        "id": 804,
+        "main": "Clouds",
+        "description": "overcast clouds",
+        "icon": "04n"
+      }
+    ],
+    "base": "stations",
+    "main": {
+      "temp": 21.05,
+      "feels_like": 20.67,
+      "temp_min": 21.05,
+      "temp_max": 21.05,
+      "pressure": 1015,
+      "humidity": 56,
+      "sea_level": 1015,
+      "grnd_level": 798
+    },
+    "visibility": 10000,
+    "wind": {
+      "speed": 3.6,
+      "deg": 260
+    },
+    "clouds": {
+      "all": 100
+    },
+    "dt": 1792078617,
+    "sys": {
+      "type": 1,
+      "id": 2541,
+      "country": "KE",
+      "sunrise": 1792034492,
+      "sunset": 1792078058
+    },
+    "timezone": 10800,
+    "id": 198629,
+    "name": "Eldoret",
+    "cod": 200
+  },
+  "daily_forecast": {
+    "latitude": 0.52724075,
+    "longitude": 35.30932,
+    "generationtime_ms": 0.0972747802734375,
+    "utc_offset_seconds": 10800,
+    "timezone": "Africa/Nairobi",
+    "timezone_abbreviation": "GMT+3",
+    "elevation": 2092.0,
+    "daily_units": {
+      "time": "iso8601",
+      "temperature_2m_max": "\u00b0C",
+      "temperature_2m_min": "\u00b0C",
+      "precipitation_sum": "mm",
+      "precipitation_probability_max": "%"
+    },
+    "daily": {
+      "time": [
+        "2026-10-15"
+      ],
+      "temperature_2m_max": [
+        25.3
+      ],
+      "temperature_2m_min": [
+        15.0
+      ],
+      "precipitation_sum": [
+        2.7
+      ],
+      "precipitation_probability_max": [
+        86
+      ]
+    }
+  }
+}
