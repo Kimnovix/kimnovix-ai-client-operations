@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kimnovix Field Weather Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f4f8;
+      color: #1e293b;
+      max-width: 640px;
+      margin: 50px auto;
+      padding: 0 20px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 28px;
+      border-top: 5px solid #1F4E79;
+    }
+    h1 {
+      color: #1F4E79;
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: #2E75B6;
+    }
+    button {
+      background: #2E75B6;
+      color: #ffffff;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #1F4E79;
+    }
+    #result {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      min-height: 80px;
+    }
+    .loading {
+      color: #2E75B6;
+      font-weight: 600;
+    }
+    .error {
+      color: #b91c1c;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      padding: 12px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .location-header {
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .location-header h2 {
+      color: #0f172a;
+      font-size: 20px;
+    }
+    .location-meta {
+      color: #64748b;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .metric-box {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .metric-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.5px;
+    }
+    .metric-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1F4E79;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Field Operations Weather Dashboard</h1>
+  <p class="subtitle">Live browser telemetry powered by Open-Meteo Fetch API (No API Key Required)</p>
+
+  <div class="search-bar">
+    <input
+      type="text"
+      id="cityInput"
+      placeholder="Enter a city or town (e.g., Eldoret, Nairobi)"
+      onkeydown="if(event.key === 'Enter') loadWeather()"
+    >
+    <button onclick="loadWeather()">Search</button>
+  </div>
+
+  <div id="result">Enter a location above and click Search to fetch live telemetry.</div>
+</div>
+
+<script>
+async function loadWeather() {
+  const resultDiv = document.getElementById("result");
+  const city = document.getElementById("cityInput").value.trim();
+
+  // 1. Validate user input
+  if (!city) {
+    resultDiv.innerHTML = `<div class="error">Please enter a city name before searching.</div>`;
+    return;
+  }
+
+  // 2. Display Loading State immediately before async network calls
+  resultDiv.innerHTML = `<p class="loading">Loading... Fetching coordinates and live telemetry for "${city}"...</p>`;
+
+  try {
+    // 3. API Call 1: Geocode the city name into GPS coordinates
+    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
+    const geoResponse = await fetch(geoUrl);
+
+    if (!geoResponse.ok) {
+      throw new Error(`Geocoding service failed (HTTP ${geoResponse.status})`);
+    }
+
+    const geoData = await geoResponse.json();
+
+    if (!geoData.results || geoData.results.length === 0) {
+      throw new Error(`Location "${city}" not found. Check the spelling and try again.`);
+    }
+
+    const location = geoData.results[0];
+    const lat = location.latitude;
+    const lon = location.longitude;
+    const name = location.name;
+    const country = location.country || "Unknown Country";
+    const region = location.admin1 || "N/A";
+    const elevation = location.elevation ? `${location.elevation.toLocaleString()} m` : "N/A";
+
+    // 4. API Call 2: Fetch live weather & daily outlook using resolved coordinates
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum&timezone=auto&forecast_days=1`;
+    const weatherResponse = await fetch(weatherUrl);
+
+    if (!weatherResponse.ok) {
+      throw new Error(`Weather forecast service failed (HTTP ${weatherResponse.status})`);
+    }
+
+    const weatherData = await weatherResponse.json();
+    const current = weatherData.current;
+    const daily = weatherData.daily;
+
+    // 5. Render formatted data into the DOM
+    resultDiv.innerHTML = `
+      <div class="location-header">
+        <h2>${name}, ${country}</h2>
+        <div class="location-meta">
+          Region: ${region} &nbsp;|&nbsp; Coordinates: ${lat.toFixed(4)}, ${lon.toFixed(4)} &nbsp;|&nbsp; Elevation: ${elevation}
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div class="metric-label">Current Temperature</div>
+          <div class="metric-value">${current.temperature_2m} °C</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Relative Humidity</div>
+          <div class="metric-value">${current.relative_humidity_2m}%</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Surface Pressure</div>
+          <div class="metric-value">${current.surface_pressure} hPa</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Wind Speed</div>
+          <div class="metric-value">${current.wind_speed_10m} km/h</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Today's Temp Range</div>
+          <div class="metric-value">${daily.temperature_2m_min[0]}°C – ${daily.temperature_2m_max[0]}°C</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Rain Probability / Total</div>
+          <div class="metric-value">${daily.precipitation_probability_max[0]}% (${daily.precipitation_sum[0]} mm)</div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    // 6. Display clean Error State if anything fails
+    resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+  }
+}
+</script>
+
+</body>
+</html>
