@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kimnovix Client Action & Dispatch Logger</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f4f8;
+      color: #1e293b;
+      max-width: 720px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 28px;
+      border-top: 5px solid #1F4E79;
+    }
+    h1 { color: #1F4E79; font-size: 24px; margin-bottom: 6px; }
+    .subtitle { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .full-width { grid-column: 1 / -1; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 4px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 15px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+    }
+    input[type="text"]:focus { border-color: #2E75B6; }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #2E75B6;
+      color: #ffffff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    button:hover { background: #1F4E79; }
+    .btn-secondary { background: #0f766e; }
+    .btn-secondary:hover { background: #115e59; }
+    .btn-danger { background: #64748b; margin-left: auto; }
+    .btn-danger:hover { background: #475569; }
+    #status { margin-bottom: 14px; font-size: 14px; }
+    .loading { color: #2E75B6; font-weight: 600; }
+    .error {
+      color: #b91c1c;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    .log-container {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+    .log-item {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #2E75B6;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .log-summary { font-weight: 700; color: #0f172a; font-size: 15px; }
+    .log-meta { font-size: 13px; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Client Action & Dispatch Logger</h1>
+  <p class="subtitle">Interactive JS Client Tool with Live Open-Meteo Telemetry & tasks.txt Export</p>
+
+  <div class="form-grid">
+    <div>
+      <label for="clientInput">Client Name</label>
+      <input type="text" id="clientInput" placeholder="e.g., Kamau Auto Spares">
+    </div>
+    <div>
+      <label for="cityInput">Client City (for live weather)</label>
+      <input type="text" id="cityInput" placeholder="e.g., Eldoret, Nairobi" value="Eldoret">
+    </div>
+    <div class="full-width">
+      <label for="taskInput">Task Description</label>
+      <input
+        type="text"
+        id="taskInput"
+        placeholder="e.g., Follow up on invoice #014"
+        onkeydown="if(event.key === 'Enter') addTask()"
+      >
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button onclick="addTask()">+ Log Client Task</button>
+    <button class="btn-secondary" onclick="downloadTasksFile()">Download tasks.txt</button>
+    <button class="btn-danger" onclick="clearTasks()">Clear List</button>
+  </div>
+
+  <div id="status"></div>
+
+  <div class="log-container">
+    <div class="log-header">
+      <strong>Logged Action Summaries</strong>
+      <span id="taskCount">0 tasks</span>
+    </div>
+    <div id="taskList">No tasks logged yet. Enter client details above.</div>
+  </div>
+</div>
+
+<script>
+const tasksLog = [];
+
+async function fetchCityWeather(city) {
+  const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
+  const geoRes = await fetch(geoUrl);
+  if (!geoRes.ok) throw new Error(`Geocoding error (${geoRes.status})`);
+
+  const geoData = await geoRes.json();
+  if (!geoData.results || geoData.results.length === 0) {
+    return `City '${city}' not found`;
+  }
+
+  const loc = geoData.results[0];
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&timezone=auto`;
+  const weatherRes = await fetch(weatherUrl);
+  if (!weatherRes.ok) throw new Error(`Weather API error (${weatherRes.status})`);
+
+  const weatherData = await weatherRes.json();
+  const cur = weatherData.current;
+  return `${loc.name}: ${cur.temperature_2m}°C, Humidity ${cur.relative_humidity_2m}%, Wind ${cur.wind_speed_10m} km/h`;
+}
+
+async function addTask() {
+  const clientInput = document.getElementById("clientInput");
+  const taskInput = document.getElementById("taskInput");
+  const cityInput = document.getElementById("cityInput");
+  const statusDiv = document.getElementById("status");
+
+  const client = clientInput.value.trim();
+  const task = taskInput.value.trim();
+  const city = cityInput.value.trim() || "Eldoret";
+
+  if (!client || !task) {
+    statusDiv.innerHTML = `<div class="error">Please enter both a Client Name and a Task Description.</div>`;
+    return;
+  }
+
+  statusDiv.innerHTML = `<p class="loading">Loading... Fetching live weather for ${city} and logging task...</p>`;
+
+  let weatherInfo = "Weather unavailable";
+  try {
+    weatherInfo = await fetchCityWeather(city);
+    statusDiv.innerHTML = "";
+  } catch (err) {
+    weatherInfo = `Weather offline (${err.message})`;
+    statusDiv.innerHTML = "";
+  }
+
+const timestamp = new Date().toLocaleString("sv-SE", { timeZone: "Africa/Nairobi" }).slice(0, 16) + " EAT";
+  const actionSummary = `${client}, Task: ${task}`;
+  const fileLine = `[${timestamp}] ${actionSummary} | Site Weather (${weatherInfo})`;
+
+  tasksLog.push({ timestamp, actionSummary, weatherInfo, fileLine });
+
+  // Clear inputs for the next entry in the loop
+  clientInput.value = "";
+  taskInput.value = "";
+  clientInput.focus();
+
+  renderTasks();
+}
+
+function renderTasks() {
+  const listDiv = document.getElementById("taskList");
+  const countSpan = document.getElementById("taskCount");
+
+  countSpan.textContent = `${tasksLog.length} ${tasksLog.length === 1 ? "task" : "tasks"}`;
+
+  if (tasksLog.length === 0) {
+    listDiv.innerHTML = "No tasks logged yet. Enter client details above.";
+    return;
+  }
+
+  listDiv.innerHTML = tasksLog.map(item => `
+    <div class="log-item">
+      <div class="log-summary">${item.actionSummary}</div>
+      <div class="log-meta">Logged: ${item.timestamp} &nbsp;|&nbsp; Site Weather: ${item.weatherInfo}</div>
+    </div>
+  `).join("");
+}
+
+function downloadTasksFile() {
+  const statusDiv = document.getElementById("status");
+  if (tasksLog.length === 0) {
+    statusDiv.innerHTML = `<div class="error">Log at least one task before downloading tasks.txt.</div>`;
+    return;
+  }
+
+  const content = tasksLog.map(item => item.fileLine).join("\n") + "\n";
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "tasks.txt";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function clearTasks() {
+  tasksLog.length = 0;
+  document.getElementById("status").innerHTML = "";
+  renderTasks();
+}
+</script>
+
+</body>
+</html>
