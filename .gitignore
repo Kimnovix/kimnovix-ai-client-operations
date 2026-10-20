@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 week1/day1_api.py
 .env
+week2/
