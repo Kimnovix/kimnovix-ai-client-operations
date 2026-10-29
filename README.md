@@ -69,3 +69,27 @@ Session complete. Total tasks logged: 1
 All entries archived in: week1/tasks.txt
 ==================================================
 ```
+## Week 3: AI API Integrations
+
+* **`week3/day11_sacco_bot.py`:** An AI-powered command-line assistant using the Anthropic SDK (`claude-haiku-4-5-20251001`). It acts as a Matatu SACCO secretary, using a strict system prompt to answer member queries about balances, meetings, and fees while gracefully handling API errors and token tracking.
+
+**Usage:**
+```bash
+python3 week3/day11_sacco_bot.py
+
+**Example Output:**
+
+```text
+==========================================
+    THIKA MATATU SACCO AI ASSISTANT       
+==========================================
+Type 'q' or 'quit' to exit.
+
+Member Question: Can I get a loan to buy a new engine?
+Drafting response...
+
+SACCO Bot:
+I cannot process loan applications for engine purchases here. Please call the main office at 0700 123 456 to discuss asset financing options with our team.
+------------------------------------------
+Cost: 271 input tokens | 106 output tokens
+==========================================
