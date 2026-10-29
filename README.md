@@ -93,3 +93,14 @@ I cannot process loan applications for engine purchases here. Please call the ma
 ------------------------------------------
 Cost: 271 input tokens | 106 output tokens
 ==========================================
+
+* **`week3/day12_property_parser.py`:** An extraction script demonstrating Prompt Engineering. It takes messy, unstructured WhatsApp inquiries and uses few-shot prompting to force Claude into returning strictly formatted JSON. The JSON is then parsed into a Python dictionary.
+  * **Extracted Fields & Purpose:**
+    * `property_type` & `bedrooms`: Filters inventory matches.
+    * `location`: Determines geographic routing.
+    * `budget_kes`: Standardizes financial data to raw integers for numerical sorting (e.g., converting "80k" to 80000).
+    * `rental_or_sale`: Routes the lead to the correct sales or letting department.
+
+**Usage:**
+```bash
+python3 week3/day12_property_parser.py
