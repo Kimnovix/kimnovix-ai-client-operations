@@ -1,10 +1,15 @@
-# Kimnovix Weather Digest & Client Operations Suite
+# Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools and a browser telemetry dashboard built for field operations, environmental monitoring, and client task dispatching in Kenya.
+API-powered Python command-line tools, AI automated workflows, and client task dispatchers built for field operations and enterprise integration in Kenya.
 
 ## What Is This?
 
-This repository contains the complete Week 1 suite of API integrations and client automation tools:
+This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, and structured data handling. 
+
+The portfolio spans multiple domains, including:
+* **Agriculture & Logistics:** Interactive local client trackers and real-time weather monitoring (OpenWeatherMap API).
+* **Financial Operations:** Dairy co-op payment calculators utilizing dynamic CLI interfaces.
+* **Customer Service & Data:** Matatu SACCO chatbots and Real Estate data extraction tools powered by the Anthropic SDK (`claude-haiku-4-5`).
 
 * **`week1/day5_client_tool.py` (Week 1 Capstone Project — Client Action & Dispatch Logger):** An interactive command-line tool that logs client follow-up tasks in a continuous loop, enriches each entry with live location weather from the OpenWeatherMap API, prints a formatted action summary, and archives all records to `week1/tasks.txt`.
 * **`week1/day4_fetch.html` (Browser Telemetry Dashboard):** A single-page web application using JavaScript `fetch()` and `async/await` to geocode cities and display live temperature, humidity, pressure, wind speed, elevation, and precipitation outlooks.
