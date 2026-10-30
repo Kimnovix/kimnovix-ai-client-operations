@@ -101,3 +101,20 @@ I cannot process loan applications for engine purchases here. Please call the ma
 Cost: 271 input tokens | 106 output tokens
 ==========================================
 ```
+
+- **`week3/day13_kisumu_pharmacy_bot.py`:** A stateful command-line chatbot demonstrating conversational memory. It uses a rolling window to manage API token limits (retaining the last 10 exchanges) and automatically exports the session to a JSON log file upon exiting.
+
+**Usage:**
+```bash
+python3 week3/day13_kisumu_pharmacy_bot.py
+
+==========================================
+      KISUMU PHARMACY ASSISTANT BOT       
+==========================================
+Type 'q', 'quit', or 'exit' to end the session.
+
+Customer: Do you guys process prescriptions?
+Assistant: Yes, we do process prescriptions. It typically takes 15-30 minutes, and we require the original physical prescription along with a patient ID.
+
+Customer: Great. Can I bring it by at 9 PM tonight?
+Assistant: I'm sorry, but our pharmacy closes at 8:00 PM today. Our hours are Monday to Saturday from 8:00 AM to 8:00 PM. We open again tomorrow morning at 8:00 AM.

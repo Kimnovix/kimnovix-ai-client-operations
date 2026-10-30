@@ -1,0 +1,29 @@
+{
+  "session_date": "2026-10-30T18:28:12.688324",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I have a prescription that needs to be filled."
+    },
+    {
+      "role": "assistant",
+      "content": "Great! I'd be happy to help you get your prescription filled at Kisumu Pharmacy.\n\nHere's what you need to know:\n\n**Prescription Processing Details:**\n- **Processing time:** 15-30 minutes\n- **What you'll need:** Your original physical prescription and a valid patient ID\n- **Hours available:** \n  - Monday-Saturday: 8:00 AM - 8:00 PM\n  - Sunday: 10:00 AM - 4:00 PM\n\n**Next steps:**\n1. Bring your original prescription and ID to our pharmacy\n2. Our team will process your medication\n3. Your prescription should be ready within 15-30 minutes\n\nDo you have any other questions, or is there anything else I can help you with?"
+    },
+    {
+      "role": "user",
+      "content": "How long will that take?"
+    },
+    {
+      "role": "assistant",
+      "content": "Your prescription should be ready in **15-30 minutes** from the time you drop it off.\n\nThe exact time may depend on how busy we are when you visit. If you'd like to check on the status or get a more specific estimate, feel free to call our pharmacist desk and they can let you know."
+    },
+    {
+      "role": "user",
+      "content": "What do I need to bring with me?"
+    },
+    {
+      "role": "assistant",
+      "content": "You'll need to bring:\n\n1. **Your original physical prescription** (the paper prescription from your doctor)\n2. **A valid patient ID**\n\nThat's all you need to get started! Once you provide these, our team will process your medication and have it ready for you in 15-30 minutes."
+    }
+  ]
+}
