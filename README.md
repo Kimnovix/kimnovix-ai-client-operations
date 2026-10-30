@@ -4,12 +4,12 @@ API-powered Python command-line tools, AI automated workflows, and client task d
 
 ## What Is This?
 
-This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, and structured data handling. 
+This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, and autonomous tool-calling agents.
 
 The portfolio spans multiple domains, including:
-- **Agriculture & Logistics:** Interactive local client trackers and real-time weather monitoring (OpenWeatherMap API).
+- **Agriculture & Logistics:** Interactive local client trackers, real-time weather monitoring (OpenWeatherMap API), and autonomous tea harvest advisory agents.
 - **Financial Operations:** Dairy co-op payment calculators utilizing dynamic CLI interfaces.
-- **Customer Service & Data:** Matatu SACCO chatbots and Real Estate data extraction tools powered by the Anthropic SDK (`claude-haiku-4-5-20251001`).
+- **Customer Service & Healthcare:** Matatu SACCO assistants, Kisumu Pharmacy stateful chatbots, and Real Estate data extraction tools powered by the Anthropic SDK (`claude-haiku-4-5-20251001`).
 
 ## Week 1: API Integrations & Automation
 
@@ -28,6 +28,8 @@ The portfolio spans multiple domains, including:
     - `location`: Determines geographic routing.
     - `budget_kes`: Standardizes financial data to raw integers for numerical sorting (e.g., converting "80k" to 80000).
     - `rental_or_sale`: Routes the lead to the correct sales or letting department.
+- **`week3/day13_kisumu_pharmacy_bot.py`:** A stateful command-line chatbot demonstrating conversational memory across multiple turns. It enforces a rolling window (retaining the last 10 messages) to manage API token limits and automatically exports the full session history to `week3/chat_log.json` upon exit.
+- **`week3/day14_tea_harvest_agent.py`:** A tool-using AI agent demonstrating the two-stage function calling loop. It evaluates field supervisor queries for a Kericho tea estate, autonomously triggers a local Python function (`get_weather_forecast`) to fetch live 6-hour OpenWeatherMap telemetry when harvest conditions are mentioned, and synthesizes an agronomic recommendation against strict temperature, rain, and humidity rules.
 
 ---
 
@@ -83,6 +85,8 @@ Saved to     : week1/tasks.txt
 ```bash
 python3 week3/day11_sacco_bot.py
 python3 week3/day12_property_parser.py
+python3 week3/day13_kisumu_pharmacy_bot.py
+python3 week3/day14_tea_harvest_agent.py
 ```
 
 **Day 11 SACCO Bot Example Output:**
@@ -102,19 +106,31 @@ Cost: 271 input tokens | 106 output tokens
 ==========================================
 ```
 
-- **`week3/day13_kisumu_pharmacy_bot.py`:** A stateful command-line chatbot demonstrating conversational memory. It uses a rolling window to manage API token limits (retaining the last 10 exchanges) and automatically exports the session to a JSON log file upon exiting.
-
-**Usage:**
-```bash
-python3 week3/day13_kisumu_pharmacy_bot.py
-
+**Day 13 Kisumu Pharmacy Bot Example Output:**
+```text
 ==========================================
       KISUMU PHARMACY ASSISTANT BOT       
 ==========================================
 Type 'q', 'quit', or 'exit' to end the session.
 
-Customer: Do you guys process prescriptions?
-Assistant: Yes, we do process prescriptions. It typically takes 15-30 minutes, and we require the original physical prescription along with a patient ID.
+Customer: I have a prescription that needs to be filled.
+Assistant: We can process your prescription for you. Please bring the original physical prescription along with your patient ID.
 
-Customer: Great. Can I bring it by at 9 PM tonight?
-Assistant: I'm sorry, but our pharmacy closes at 8:00 PM today. Our hours are Monday to Saturday from 8:00 AM to 8:00 PM. We open again tomorrow morning at 8:00 AM.
+Customer: How long will that take?
+Assistant: Prescription processing takes between 15 and 30 minutes.
+```
+
+**Day 14 Kericho Tea Harvest Agent Example Output:**
+```text
+==========================================
+   KERICHO TEA ESTATE FIELD ASSISTANT     
+==========================================
+Type 'q', 'quit', or 'exit' to end the session.
+
+Supervisor: Is today a good day for harvesting in Kericho?
+
+[SYSTEM: Executing local tool get_weather_forecast('Kericho')]...
+[SYSTEM: Tool returned data -> passing back to AI for synthesis]
+
+AI: Based on the 6-hour forecast for Kericho, conditions are MARGINAL to BAD for harvesting. While temperatures are ideal (18.5°C–20.1°C), light rain is forecasted within the next 6 hours with high humidity (82%). Hold off on deploying harvesting crews or proceed with caution under cover.
+```
