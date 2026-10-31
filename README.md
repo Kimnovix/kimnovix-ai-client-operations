@@ -4,12 +4,12 @@ API-powered Python command-line tools, AI automated workflows, and client task d
 
 ## What Is This?
 
-This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, and autonomous tool-calling agents.
+This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, autonomous tool-calling agents, and production CLI utilities.
 
 The portfolio spans multiple domains, including:
 - **Agriculture & Logistics:** Interactive local client trackers, real-time weather monitoring (OpenWeatherMap API), and autonomous tea harvest advisory agents.
 - **Financial Operations:** Dairy co-op payment calculators utilizing dynamic CLI interfaces.
-- **Customer Service & Healthcare:** Matatu SACCO assistants, Kisumu Pharmacy stateful chatbots, and Real Estate data extraction tools powered by the Anthropic SDK (`claude-haiku-4-5-20251001`).
+- **Customer Service, Healthcare & Enterprise Productivity:** Matatu SACCO assistants, Kisumu Pharmacy stateful chatbots, Real Estate JSON extractors, and an AI Meeting Notes Summarizer powered by the Anthropic SDK (`claude-haiku-4-5-20251001`).
 
 ## Week 1: API Integrations & Automation
 
@@ -30,6 +30,7 @@ The portfolio spans multiple domains, including:
     - `rental_or_sale`: Routes the lead to the correct sales or letting department.
 - **`week3/day13_kisumu_pharmacy_bot.py`:** A stateful command-line chatbot demonstrating conversational memory across multiple turns. It enforces a rolling window (retaining the last 10 messages) to manage API token limits and automatically exports the full session history to `week3/chat_log.json` upon exit.
 - **`week3/day14_tea_harvest_agent.py`:** A tool-using AI agent demonstrating the two-stage function calling loop. It evaluates field supervisor queries for a Kericho tea estate, autonomously triggers a local Python function (`get_weather_forecast`) to fetch live 6-hour OpenWeatherMap telemetry when harvest conditions are mentioned, and synthesizes an agronomic recommendation against strict temperature, rain, and humidity rules.
+- **`week3/day15_meeting_summarizer.py` (Week 3 Capstone Project — AI Meeting Notes Summarizer CLI):** A production command-line tool that converts raw, unstructured meeting notes into three actionable sections: Decisions Made, Action Items with Owners, and Unresolved Questions. Supports direct CLI arguments (`sys.argv`) and interactive input, handles API/network/input errors cleanly, and calculates real-time token costs in KES (~KES 0.15 per summary).
 
 ---
 
@@ -87,6 +88,7 @@ python3 week3/day11_sacco_bot.py
 python3 week3/day12_property_parser.py
 python3 week3/day13_kisumu_pharmacy_bot.py
 python3 week3/day14_tea_harvest_agent.py
+python3 week3/day15_meeting_summarizer.py "Eldoret Agro-Tech sync: Approved KES 45,000 budget for sensor housing. Dennis to finalize CAD mounts by Thursday. Joy to contact Nakuru supplier for solar cells by Tuesday. Still unsure if LoRa gateway range covers Section B."
 ```
 
 **Day 11 SACCO Bot Example Output:**
@@ -133,4 +135,27 @@ Supervisor: Is today a good day for harvesting in Kericho?
 [SYSTEM: Tool returned data -> passing back to AI for synthesis]
 
 AI: Based on the 6-hour forecast for Kericho, conditions are MARGINAL to BAD for harvesting. While temperatures are ideal (18.5°C–20.1°C), light rain is forecasted within the next 6 hours with high humidity (82%). Hold off on deploying harvesting crews or proceed with caution under cover.
+```
+
+**Day 15 Meeting Notes Summarizer CLI Example Output:**
+```text
+======================================================
+     KIMNOVIX AI MEETING NOTES SUMMARIZER (v1.0)      
+======================================================
+Processing CLI argument payload...
+
+1. DECISIONS MADE
+- Approved a KES 45,000 budget for sensor housing.
+
+2. ACTION ITEMS & OWNERS
+- Dennis -> Finalize CAD mounts (Deadline: Thursday)
+- Joy -> Contact Nakuru supplier for solar cells (Deadline: Tuesday)
+
+3. UNRESOLVED QUESTIONS & BLOCKERS
+- Whether the LoRa gateway range is sufficient to cover Section B.
+
+------------------------------------------------------
+Telemetry : 242 input tokens | 118 output tokens
+Est. Cost : KES 0.1079 (claude-haiku-4-5-20251001)
+======================================================
 ```
