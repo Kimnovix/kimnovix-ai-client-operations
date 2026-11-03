@@ -4,12 +4,13 @@ API-powered Python command-line tools, AI automated workflows, and client task d
 
 ## What Is This?
 
-This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, autonomous tool-calling agents, and production CLI utilities.
+This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, autonomous tool-calling agents, production CLI utilities, and web applications.
 
 The portfolio spans multiple domains, including:
 - **Agriculture & Logistics:** Interactive local client trackers, real-time weather monitoring (OpenWeatherMap API), and autonomous tea harvest advisory agents.
 - **Financial Operations:** Dairy co-op payment calculators utilizing dynamic CLI interfaces.
 - **Customer Service, Healthcare & Enterprise Productivity:** Matatu SACCO assistants, Kisumu Pharmacy stateful chatbots, Real Estate JSON extractors, and an AI Meeting Notes Summarizer powered by the Anthropic SDK (`claude-haiku-4-5-20251001`).
+- **Web Applications:** Lightweight local Flask servers for retail credit tracking and automated ledger recovery.
 
 ## Week 1: API Integrations & Automation
 
@@ -32,6 +33,11 @@ The portfolio spans multiple domains, including:
 - **`week3/day14_tea_harvest_agent.py`:** A tool-using AI agent demonstrating the two-stage function calling loop. It evaluates field supervisor queries for a Kericho tea estate, autonomously triggers a local Python function (`get_weather_forecast`) to fetch live 6-hour OpenWeatherMap telemetry when harvest conditions are mentioned, and synthesizes an agronomic recommendation against strict temperature, rain, and humidity rules.
 - **`week3/day15_meeting_summarizer.py` (Week 3 Capstone Project — AI Meeting Notes Summarizer CLI):** A production command-line tool that converts raw, unstructured meeting notes into three actionable sections: Decisions Made, Action Items with Owners, and Unresolved Questions. Supports direct CLI arguments (`sys.argv`) and interactive input, handles API/network/input errors cleanly, and calculates real-time token costs in KES (~KES 0.15 per summary).
 
+## Week 4: Web Applications (Flask)
+
+- **`week4/day16_hardware_balances.py`:** A lightweight Flask web server for a local hardware shop. Features an HTML frontend form that submits query parameters to a JSON API endpoint to retrieve customer credit balances. Includes 200, 400, and 404 HTTP status code handling.
+  - **Pricing Strategy:** I would charge a hardware shop owner **KES 15,000** for this localized network tool. It is priced not on the lines of code, but on the value of recovering unpaid debts and preventing revenue leakage at the counter.
+
 ---
 
 ## Setup & Installation
@@ -43,7 +49,7 @@ The portfolio spans multiple domains, including:
    ```
 2. Install required Python libraries:
    ```bash
-   pip install requests python-dotenv anthropic
+   pip install requests python-dotenv anthropic flask
    ```
 3. Create a `.env` file in the root folder with your OpenWeatherMap and Anthropic API keys:
    ```env
@@ -158,4 +164,20 @@ Processing CLI argument payload...
 Telemetry : 242 input tokens | 118 output tokens
 Est. Cost : KES 0.1079 (claude-haiku-4-5-20251001)
 ======================================================
+```
+
+### Running Week 4 Web Applications
+```bash
+python3 week4/day16_hardware_balances.py
+```
+
+**Day 16 Local API Testing Example:**
+- **Frontend:** Open `http://127.0.0.1:5000` in your browser.
+- **API JSON Output (`/api/balance?name=njeri`):**
+```json
+{
+  "balance_kes": 12000,
+  "customer": "Njeri",
+  "status": "success"
+}
 ```
