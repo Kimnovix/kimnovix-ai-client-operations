@@ -4,13 +4,13 @@ API-powered Python command-line tools, AI automated workflows, and client task d
 
 ## What Is This?
 
-This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, autonomous tool-calling agents, production CLI utilities, and web applications.
+This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, autonomous tool-calling agents, production CLI utilities, and RESTful web applications.
 
 The portfolio spans multiple domains, including:
-- **Agriculture & Logistics:** Interactive local client trackers, real-time weather monitoring (OpenWeatherMap API), and autonomous tea harvest advisory agents.
+- **Agriculture & Logistics:** Interactive local client trackers, real-time weather monitoring (OpenWeatherMap API), autonomous tea harvest advisory agents, and poultry production REST APIs.
 - **Financial Operations:** Dairy co-op payment calculators utilizing dynamic CLI interfaces.
 - **Customer Service, Healthcare & Enterprise Productivity:** Matatu SACCO assistants, Kisumu Pharmacy stateful chatbots, Real Estate JSON extractors, and an AI Meeting Notes Summarizer powered by the Anthropic SDK (`claude-haiku-4-5-20251001`).
-- **Web Applications:** Lightweight local Flask servers for retail credit tracking and automated ledger recovery.
+- **Web Applications & REST APIs:** Lightweight Flask servers and structured JSON endpoints for retail credit tracking and livestock production telemetry.
 
 ## Week 1: API Integrations & Automation
 
@@ -36,7 +36,7 @@ The portfolio spans multiple domains, including:
 ## Week 4: Web Applications (Flask)
 
 - **`week4/day16_hardware_balances.py`:** A lightweight Flask web server for a local hardware shop. Features an HTML frontend form that submits query parameters to a JSON API endpoint to retrieve customer credit balances. Includes 200, 400, and 404 HTTP status code handling.
-  - **Pricing Strategy:** I would charge a hardware shop owner **KES 15,000** for this localized network tool. It is priced not on the lines of code, but on the value of recovering unpaid debts and preventing revenue leakage at the counter.
+- **`week4/day17_egg_tracker_api.py`:** A RESTful Flask API for a multi-shed poultry operation in Kiambu. Exposes `POST /api/eggs` to validate and log daily egg collections per shed (`201 Created` / `400 Bad Request`) and `GET /api/eggs` (`200 OK`) to return the complete production ledger alongside live per-shed subtotals and an overall running total.
 
 ---
 
@@ -44,7 +44,7 @@ The portfolio spans multiple domains, including:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Kimnovix/kimnovix-ai-client-operations.git
+   git clone [https://github.com/Kimnovix/kimnovix-ai-client-operations.git](https://github.com/Kimnovix/kimnovix-ai-client-operations.git)
    cd kimnovix-ai-client-operations
    ```
 2. Install required Python libraries:
@@ -169,6 +169,7 @@ Est. Cost : KES 0.1079 (claude-haiku-4-5-20251001)
 ### Running Week 4 Web Applications
 ```bash
 python3 week4/day16_hardware_balances.py
+python3 week4/day17_egg_tracker_api.py
 ```
 
 **Day 16 Local API Testing Example:**
@@ -181,3 +182,51 @@ python3 week4/day16_hardware_balances.py
   "status": "success"
 }
 ```
+
+**Day 17 Poultry Egg Production REST API Example (`GET /api/eggs`):**
+```json
+{
+  "records": [
+    {
+      "count": 420,
+      "date": "2026-11-01",
+      "id": 1,
+      "shed": "Shed A"
+    },
+    {
+      "count": 385,
+      "date": "2026-11-01",
+      "id": 2,
+      "shed": "Shed B"
+    },
+    {
+      "count": 435,
+      "date": "2026-11-02",
+      "id": 3,
+      "shed": "Shed A"
+    },
+    {
+      "count": 390,
+      "date": "2026-11-02",
+      "id": 4,
+      "shed": "Shed B"
+    }
+  ],
+  "running_total_eggs": 1630,
+  "shed_breakdown": {
+    "Shed A": 855,
+    "Shed B": 775
+  },
+  "status": "success",
+  "total_records": 4
+}
+```
+
+---
+
+## Commercial Pricing & Deployment Valuation
+
+| Module | Target Client | Build & Deployment Fee | Monthly Retainer | Valuation Rationale |
+| :--- | :--- | :--- | :--- | :--- |
+| **`day16_hardware_balances.py`** | Eldoret Hardware Shop | **KES 15,000** (One-off) | N/A (Local LAN execution) | Priced on the business value of recovering unpaid credit accounts and preventing counter revenue leakage. |
+| **`day17_egg_tracker_api.py`** | Kiambu Multi-Shed Poultry Farm | **KES 30,000** (One-off) | **KES 5,000 / month** | Build fee covers API setup and shed telemetry validation; monthly retainer covers cloud hosting, automated daily ledger backups, and uptime monitoring. |
