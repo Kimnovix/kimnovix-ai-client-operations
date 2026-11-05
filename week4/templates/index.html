@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiambu Poultry Farm — Live Egg Production Tracker</title>
+    <style>
+        :root {
+            --bg: #f4f6f8;
+            --card: #ffffff;
+            --primary: #1b5e20;
+            --primary-hover: #144517;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #d1d5db;
+            --error-bg: #fee2e2;
+            --error-text: #991b1b;
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            max-width: 760px;
+            margin: 32px auto;
+            padding: 0 16px;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1 { margin-top: 0; font-size: 1.5rem; color: var(--primary); }
+        h2 { margin-top: 0; font-size: 1.15rem; }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+        input {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 0.95rem;
+        }
+        button {
+            background-color: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            font-size: 0.95rem;
+        }
+        button:hover:not(:disabled) { background-color: var(--primary-hover); }
+        button:disabled { opacity: 0.65; cursor: not-allowed; }
+        #status-msg {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .status-error { background: var(--error-bg); color: var(--error-text); display: block !important; }
+        .status-success { background: var(--success-bg); color: var(--success-text); display: block !important; }
+        .metrics-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #eef2ff;
+            padding: 14px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        .total-badge { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
+        .shed-pills { font-size: 0.9rem; color: var(--muted); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        th { background-color: #f9fafb; font-weight: 600; }
+        .empty-row { text-align: center; color: var(--muted); padding: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Kiambu Poultry Farm — Egg Production Ledger</h1>
+        <p style="color: var(--muted); margin-top: -6px; margin-bottom: 16px;">
+            Log daily shed collections and monitor running totals in real time.
+        </p>
+
+        <form id="egg-form" novalidate>
+            <div class="form-grid">
+                <div>
+                    <label for="shed-input">Shed Name</label>
+                    <input type="text" id="shed-input" placeholder="e.g., Shed A" autocomplete="off">
+                </div>
+                <div>
+                    <label for="date-input">Collection Date</label>
+                    <input type="date" id="date-input">
+                </div>
+                <div>
+                    <label for="count-input">Egg Count</label>
+                    <input type="number" id="count-input" placeholder="e.g., 420" min="0">
+                </div>
+            </div>
+            <button type="submit" id="submit-btn">Submit Collection Record</button>
+        </form>
+
+        <div id="status-msg"></div>
+    </div>
+
+    <div class="card">
+        <h2>Live Production Summary</h2>
+        <div class="metrics-bar">
+            <div>Running Total: <span class="total-badge" id="running-total">0</span> eggs</div>
+            <div class="shed-pills" id="shed-breakdown">No shed data logged yet.</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Shed Name</th>
+                    <th>Date</th>
+                    <th>Egg Count</th>
+                </tr>
+            </thead>
+            <tbody id="records-tbody">
+                <tr>
+                    <td colspan="4" class="empty-row">No records logged in this session.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:5000/api/eggs";
+        const eggForm = document.getElementById("egg-form");
+        const shedInput = document.getElementById("shed-input");
+        const dateInput = document.getElementById("date-input");
+        const countInput = document.getElementById("count-input");
+        const submitBtn = document.getElementById("submit-btn");
+        const statusMsg = document.getElementById("status-msg");
+        const runningTotalEl = document.getElementById("running-total");
+        const shedBreakdownEl = document.getElementById("shed-breakdown");
+        const recordsTbody = document.getElementById("records-tbody");
+
+        // Default date picker to today's date
+        dateInput.valueAsDate = new Date();
+
+        function showStatus(message, isError = false) {
+            statusMsg.textContent = message;
+            statusMsg.className = isError ? "status-error" : "status-success";
+        }
+
+        async function fetchAndRenderRecords() {
+            try {
+                const response = await fetch(API_URL, { method: "GET" });
+                if (!response.ok) {
+                    throw new Error(`GET failed with status ${response.status}`);
+                }
+                const data = await response.json();
+
+                // Update running total
+                runningTotalEl.textContent = data.running_total_eggs.toLocaleString();
+
+                // Update per-shed breakdown
+                const sheds = Object.entries(data.shed_breakdown || {});
+                if (sheds.length > 0) {
+                    shedBreakdownEl.textContent = sheds
+                        .map(([name, total]) => `${name}: ${total.toLocaleString()}`)
+                        .join(" | ");
+                } else {
+                    shedBreakdownEl.textContent = "No shed data logged yet.";
+                }
+
+                // Render table rows
+                recordsTbody.innerHTML = "";
+                if (!data.records || data.records.length === 0) {
+                    recordsTbody.innerHTML = `<tr><td colspan="4" class="empty-row">No records logged in this session.</td></tr>`;
+                    return;
+                }
+
+                data.records.forEach((rec) => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>#${rec.id}</td>
+                        <td>${rec.shed}</td>
+                        <td>${rec.date}</td>
+                        <td><strong>${rec.count.toLocaleString()}</strong></td>
+                    `;
+                    recordsTbody.appendChild(row);
+                });
+            } catch (err) {
+                showStatus("Unable to reach the Flask server. Ensure day18_egg_tracker_fullstack.py is running.", true);
+            }
+        }
+
+        eggForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const shed = shedInput.value.trim();
+            const date = dateInput.value.trim();
+            const countRaw = countInput.value.trim();
+
+            // Client-side pre-flight check for empty inputs
+            if (!shed || !date || countRaw === "") {
+                showStatus("Please fill in the shed name, collection date, and egg count before submitting.", true);
+                return;
+            }
+
+            // Set loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Logging Record...";
+            statusMsg.className = "";
+            statusMsg.style.display = "none";
+
+            try {
+                const postResponse = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        shed: shed,
+                        date: date,
+                        count: Number(countRaw)
+                    })
+                });
+
+                const postData = await postResponse.json();
+
+                if (!postResponse.ok) {
+                    throw new Error(postData.message || "Failed to log record.");
+                }
+
+                // Clear count input for next entry and show confirmation
+                countInput.value = "";
+                showStatus(`Logged ${postData.record.count} eggs for ${postData.record.shed}.`);
+
+                // Chain GET call to refresh table and totals live
+                await fetchAndRenderRecords();
+
+            } catch (err) {
+                if (err instanceof TypeError) {
+                    showStatus("Network error: Flask server is offline or unreachable. Start the server and try again.", true);
+                } else {
+                    showStatus(err.message || "Something went wrong. Try again.", true);
+                }
+            } finally {
+                // Always restore button state
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Submit Collection Record";
+            }
+        });
+
+        // Load existing records on initial page open
+        fetchAndRenderRecords();
+    </script>
+</body>
+</html>
