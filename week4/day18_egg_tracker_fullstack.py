@@ -1,16 +1,16 @@
 """
-Day 18: Full-Stack Poultry Egg Production Tracker (Flask + CORS + Fetch API)
-----------------------------------------------------------------------------
+Day 18 & 19: Full-Stack Poultry Egg Production Tracker (Production Ready)
+-------------------------------------------------------------------------
 Serves an interactive browser dashboard on the root route (/) and exposes
-CORS-enabled REST endpoints (/api/eggs) for asynchronous POST and GET operations
-without page reloads.
+CORS-enabled REST endpoints (/api/eggs) for asynchronous POST and GET operations.
+Configured for cloud deployment via Gunicorn and Render dynamic PORT binding.
 """
 
+import os
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 
 app = Flask(__name__)
-# Enable Cross-Origin Resource Sharing for browser fetch() requests
 CORS(app)
 
 # In-memory data store for daily egg collection logs
@@ -91,4 +91,5 @@ def get_egg_production():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

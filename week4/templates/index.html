@@ -153,7 +153,8 @@
     </div>
 
     <script>
-        const API_URL = "http://127.0.0.1:5000/api/eggs";
+        // Relative URL automatically adapts to localhost (127.0.0.1:5000) or Render HTTPS domain
+        const API_URL = "/api/eggs";
         const eggForm = document.getElementById("egg-form");
         const shedInput = document.getElementById("shed-input");
         const dateInput = document.getElementById("date-input");
@@ -164,7 +165,6 @@
         const shedBreakdownEl = document.getElementById("shed-breakdown");
         const recordsTbody = document.getElementById("records-tbody");
 
-        // Default date picker to today's date
         dateInput.valueAsDate = new Date();
 
         function showStatus(message, isError = false) {
@@ -180,10 +180,8 @@
                 }
                 const data = await response.json();
 
-                // Update running total
                 runningTotalEl.textContent = data.running_total_eggs.toLocaleString();
 
-                // Update per-shed breakdown
                 const sheds = Object.entries(data.shed_breakdown || {});
                 if (sheds.length > 0) {
                     shedBreakdownEl.textContent = sheds
@@ -193,7 +191,6 @@
                     shedBreakdownEl.textContent = "No shed data logged yet.";
                 }
 
-                // Render table rows
                 recordsTbody.innerHTML = "";
                 if (!data.records || data.records.length === 0) {
                     recordsTbody.innerHTML = `<tr><td colspan="4" class="empty-row">No records logged in this session.</td></tr>`;
@@ -211,7 +208,7 @@
                     recordsTbody.appendChild(row);
                 });
             } catch (err) {
-                showStatus("Unable to reach the Flask server. Ensure day18_egg_tracker_fullstack.py is running.", true);
+                showStatus("Unable to reach the server. Ensure the backend service is running.", true);
             }
         }
 
@@ -222,13 +219,11 @@
             const date = dateInput.value.trim();
             const countRaw = countInput.value.trim();
 
-            // Client-side pre-flight check for empty inputs
             if (!shed || !date || countRaw === "") {
                 showStatus("Please fill in the shed name, collection date, and egg count before submitting.", true);
                 return;
             }
 
-            // Set loading state
             submitBtn.disabled = true;
             submitBtn.textContent = "Logging Record...";
             statusMsg.className = "";
@@ -251,27 +246,23 @@
                     throw new Error(postData.message || "Failed to log record.");
                 }
 
-                // Clear count input for next entry and show confirmation
                 countInput.value = "";
                 showStatus(`Logged ${postData.record.count} eggs for ${postData.record.shed}.`);
 
-                // Chain GET call to refresh table and totals live
                 await fetchAndRenderRecords();
 
             } catch (err) {
                 if (err instanceof TypeError) {
-                    showStatus("Network error: Flask server is offline or unreachable. Start the server and try again.", true);
+                    showStatus("Network error: Server is offline or unreachable. Try again shortly.", true);
                 } else {
                     showStatus(err.message || "Something went wrong. Try again.", true);
                 }
             } finally {
-                // Always restore button state
                 submitBtn.disabled = false;
                 submitBtn.textContent = "Submit Collection Record";
             }
         });
 
-        // Load existing records on initial page open
         fetchAndRenderRecords();
     </script>
 </body>
