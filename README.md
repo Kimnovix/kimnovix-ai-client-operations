@@ -1,22 +1,30 @@
 # Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools, AI automated workflows, and full-stack web applications built for field operations and enterprise integration in Kenya.
+API-powered Python command-line tools, AI automated workflows, and cloud-deployed full-stack web applications built for field operations and enterprise integration in Kenya.
 
-## Live Demo
+## Live Deployed Applications (Render Cloud)
 
-- **Kiambu Poultry Farm — Live Egg Production Tracker (Deployed on Render):** https://kimnovix-egg-tracker.onrender.com
-  - **Live API Endpoint (`GET` / `POST`):** `https://kimnovix-egg-tracker.onrender.com/api/eggs`
-  - *Note: Hosted on Render's free tier; initial page load after inactivity may take 30–50 seconds for the container to wake up.*
+### 1. SME Customer Complaint Responder AI (Week 4 Capstone)
+- **Live Demo:** https://kimnovix-complaint-responder.onrender.com
+- **Portfolio Overview:** A web application that turns heated customer complaints into polite, de-escalated reply drafts in under 5 seconds. Built for Kenyan SMEs—including courier services, retail shops, Airbnbs, and restaurants—that handle high volumes of WhatsApp and email inquiries daily. Business owners paste a customer's complaint, click **Generate Reply**, and receive a ready-to-send response that acknowledges the issue and offers a clear next step without blaming or over-promising. Built with Python, Flask, the Anthropic Claude API (`claude-haiku-4-5-20251001`), and asynchronous JavaScript (`fetch`). Deployed on Render under Gunicorn.
 
-## What Is This?
+### 2. Kiambu Poultry Farm — Live Egg Production Tracker (Day 18 & 19)
+- **Live Demo:** https://kimnovix-egg-tracker.onrender.com
+- **Live REST API Endpoint (`GET` / `POST`):** `https://kimnovix-egg-tracker.onrender.com/api/eggs`
+
+*(Note: Both live applications are hosted on Render's free tier; initial page load after inactivity may take 30–50 seconds for the container to wake up.)*
+
+---
+
+## What Is This Repository?
 
 This repository contains a progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, autonomous tool-calling agents, production CLI utilities, and cloud-deployed full-stack RESTful web applications.
 
 The portfolio spans multiple domains, including:
 - **Agriculture & Logistics:** Interactive local client trackers, real-time weather monitoring (OpenWeatherMap API), autonomous tea harvest advisory agents, and cloud-deployed poultry production web trackers.
 - **Financial Operations:** Dairy co-op payment calculators utilizing dynamic CLI interfaces.
-- **Customer Service, Healthcare & Enterprise Productivity:** Matatu SACCO assistants, Kisumu Pharmacy stateful chatbots, Real Estate JSON extractors, and an AI Meeting Notes Summarizer powered by the Anthropic SDK (`claude-haiku-4-5-20251001`).
-- **Web Applications & Cloud Deployment:** Production Flask servers running under Gunicorn on Render, CORS-enabled JSON endpoints, and asynchronous JavaScript (`fetch`) dashboards for retail credit tracking and livestock production telemetry.
+- **Customer Service, Healthcare & Enterprise Productivity:** Matatu SACCO assistants, Kisumu Pharmacy stateful chatbots, Real Estate JSON extractors, an AI Meeting Notes Summarizer, and a live AI Customer Complaint Responder powered by the Anthropic SDK (`claude-haiku-4-5-20251001`).
+- **Web Applications & Cloud Deployment:** Production Flask servers running under Gunicorn on Render, CORS-enabled JSON endpoints, and asynchronous JavaScript (`fetch`) dashboards.
 
 ## Week 1: API Integrations & Automation
 
@@ -44,6 +52,7 @@ The portfolio spans multiple domains, including:
 - **`week4/day16_hardware_balances.py`:** A lightweight Flask web server for a local hardware shop. Features an HTML frontend form that submits query parameters to a JSON API endpoint to retrieve customer credit balances. Includes 200, 400, and 404 HTTP status code handling.
 - **`week4/day17_egg_tracker_api.py`:** A RESTful Flask API for a multi-shed poultry operation in Kiambu. Exposes `POST /api/eggs` to validate and log daily egg collections per shed (`201 Created` / `400 Bad Request`) and `GET /api/eggs` (`200 OK`) to return the complete production ledger alongside live per-shed subtotals and an overall running total.
 - **`week4/day18_egg_tracker_fullstack.py` & `week4/templates/index.html` (Deployed to Render in Day 19):** A full-stack browser application connecting an asynchronous JavaScript (`fetch`) frontend to a CORS-enabled Flask backend (`flask-cors`), served in production via `gunicorn`. Farm managers log daily shed egg counts via a single-page dashboard that chains `POST` and `GET` calls to update running totals, per-shed breakdowns, and the ledger table in place without reloading the page.
+- **`week4/day20_complaint_responder.py` & `week4/templates/complaint_responder.html` (Week 4 Capstone — Deployed AI Web App):** A cloud-deployed AI web application that converts raw customer complaints into professional, de-escalated reply drafts. Features one-click scenario testing, asynchronous `POST /api/process` processing via Claude Haiku 4.5, strict system prompt guardrails (polite tone, issue acknowledgment, clear next step, zero blame, zero unauthorized promises), one-click clipboard copy, and live token/KES cost telemetry.
 
 ---
 
@@ -179,47 +188,22 @@ Est. Cost : KES 0.1079 (claude-haiku-4-5-20251001)
 python3 week4/day16_hardware_balances.py
 python3 week4/day17_egg_tracker_api.py
 python3 week4/day18_egg_tracker_fullstack.py
+python3 week4/day20_complaint_responder.py
 
 # Production WSGI server (Gunicorn)
 gunicorn --chdir week4 day18_egg_tracker_fullstack:app
+gunicorn --chdir week4 day20_complaint_responder:app
 ```
 
-**Day 16 Local API Testing Example:**
-- **Frontend:** Open `http://127.0.0.1:5000` in your browser.
-- **API JSON Output (`/api/balance?name=njeri`):**
-```json
-{
-  "balance_kes": 12000,
-  "customer": "Njeri",
-  "status": "success"
-}
-```
+**Day 20 AI Complaint Responder Example (`POST /api/process`):**
+- **Input Complaint:** *"Hello, I paid for express boda delivery to Kilimani at 10 AM today (Order #409). It is now 3 PM and my client hasn't received the spare parts, and your rider's phone is switched off! What kind of service is this?"*
+- **AI Generated Reply Draft:**
+```text
+Dear Customer,
 
-**Day 17–19 Poultry Egg Production REST API Example (`GET /api/eggs`):**
-```json
-{
-  "records": [
-    {
-      "count": 420,
-      "date": "2026-11-01",
-      "id": 1,
-      "shed": "Shed A"
-    },
-    {
-      "count": 385,
-      "date": "2026-11-01",
-      "id": 2,
-      "shed": "Shed B"
-    }
-  ],
-  "running_total_eggs": 805,
-  "shed_breakdown": {
-    "Shed A": 420,
-    "Shed B": 385
-  },
-  "status": "success",
-  "total_records": 2
-}
+Thank you for reaching out to us regarding Order #409, and please accept our sincere apologies for the delay with your Kilimani delivery and the difficulty reaching the dispatch line. We completely understand how urgent these spare parts are for your client and how frustrating this delay is.
+
+Our dispatch team is immediately tracing Order #409 and establishing direct contact with the assigned rider on that route. We will call you directly within the next 15 minutes with the exact status of your parcel and the confirmed delivery time to your client.
 ```
 
 ---
@@ -230,4 +214,5 @@ gunicorn --chdir week4 day18_egg_tracker_fullstack:app
 | :--- | :--- | :--- | :--- | :--- |
 | **`day16_hardware_balances.py`** | Eldoret Hardware Shop | **KES 15,000** (One-off) | N/A (Local LAN execution) | Priced on the business value of recovering unpaid credit accounts and preventing counter revenue leakage. |
 | **`day17_egg_tracker_api.py`** | Kiambu Multi-Shed Poultry Farm | **KES 30,000** (One-off) | **KES 5,000 / month** | Build fee covers API setup and shed telemetry validation; monthly retainer covers cloud hosting, automated daily ledger backups, and uptime monitoring. |
-| **`day18_egg_tracker_fullstack.py` (Live on Render)** | Kenyan Agribusinesses & High-Frequency SMEs | **KES 45,000 – 65,000** (One-off) | **KES 6,500 / month** | Cloud-deployed full-stack single-page operational dashboard + REST API. Ideal for: **(1) Commercial Poultry & Dairy Farms** (tracking daily yield per shed/cow), **(2) Posho Mills & Cereal Depots** (logging daily sacks milled and stock movement), **(3) Dairy Collection Coolers & Co-ops** (recording morning/evening farmer milk deliveries), and **(4) Agro-Vet & Wholesale Distributors** (live branch stock tallying). |
+| **`day18_egg_tracker_fullstack.py` (Live on Render)** | Kenyan Agribusinesses & High-Frequency SMEs | **KES 45,000 – 65,000** (One-off) | **KES 6,500 / month** | Cloud-deployed full-stack single-page operational dashboard + REST API. Ideal for: **(1) Commercial Poultry & Dairy Farms**, **(2) Posho Mills & Cereal Depots**, **(3) Dairy Collection Coolers & Co-ops**, and **(4) Agro-Vet & Wholesale Distributors**. |
+| **`day20_complaint_responder.py` (Branded AI Web App — Live on Render)** | Nairobi & Eldoret Courier Services, E-Commerce Shops, Airbnbs & Restaurants | **KES 35,000** (One-off Branded Build) | **KES 4,500 / month** | Custom-branded version includes company logo, custom domain setup, and a tailored system prompt trained on the client's specific refund, delivery, and escalation policies. Monthly retainer covers cloud hosting and up to 2,500 AI-generated responses per month (actual Claude Haiku token cost is ~KES 0.12 per reply, yielding a >90% gross margin on the retainer). |
