@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kimnovix SME Complaint Responder — AI Reply Drafter</title>
+    <style>
+        :root {
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --primary: #0f4c81;
+            --primary-hover: #0a355c;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #d1d5db;
+            --error-bg: #fee2e2;
+            --error-text: #991b1b;
+            --reply-bg: #f8fafc;
+            --accent: #047857;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            max-width: 720px;
+            margin: 36px auto;
+            padding: 0 16px;
+            line-height: 1.5;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+        h1 { margin-top: 0; font-size: 1.45rem; color: var(--primary); }
+        .subtitle { color: var(--muted); margin-top: -6px; margin-bottom: 18px; font-size: 0.95rem; }
+        label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: 2px solid var(--primary);
+            border-color: transparent;
+        }
+        .sample-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0 16px 0;
+            align-items: center;
+        }
+        .sample-label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+        .chip {
+            background: #e5e7eb;
+            color: #374151;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .chip:hover { background: #d1d5db; }
+        #submit-btn {
+            background-color: var(--primary);
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+        #submit-btn:hover:not(:disabled) { background-color: var(--primary-hover); }
+        #submit-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+        #error-box {
+            display: none;
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 6px;
+            background: var(--error-bg);
+            color: var(--error-text);
+            font-size: 0.9rem;
+        }
+        #output-card { display: none; }
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .output-title { font-weight: 700; font-size: 1.05rem; color: var(--accent); margin: 0; }
+        .copy-btn {
+            background: #eef2ff;
+            color: var(--primary);
+            border: 1px solid #c7d2fe;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .copy-btn:hover { background: #e0e7ff; }
+        #reply-output {
+            background: var(--reply-bg);
+            border-left: 4px solid var(--accent);
+            padding: 16px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-size: 0.96rem;
+        }
+        .telemetry {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>SME Customer Complaint Responder</h1>
+        <p class="subtitle">
+            Paste a customer complaint from WhatsApp, SMS, or email to generate a polite, de-escalated reply draft in seconds.
+        </p>
+
+        <label for="complaint-input">Customer Complaint Message</label>
+        <textarea
+            id="complaint-input"
+            placeholder="e.g., I paid for my parcel delivery to Westlands at 9 AM and the rider still hasn't showed up! Nobody is picking up the office phone..."
+        ></textarea>
+
+        <div class="sample-bar">
+            <span class="sample-label">Quick-fill test scenarios:</span>
+            <button type="button" class="chip" onclick="loadSample(0)">1. Courier Delay</button>
+            <button type="button" class="chip" onclick="loadSample(1)">2. Restaurant Wrong Order</button>
+            <button type="button" class="chip" onclick="loadSample(2)">3. Airbnb Wi-Fi Issue</button>
+        </div>
+
+        <button id="submit-btn" onclick="generateReply()">Generate Reply</button>
+        <div id="error-box"></div>
+    </div>
+
+    <div class="card" id="output-card">
+        <div class="output-header">
+            <h2 class="output-title">Ready-to-Send Reply Draft</h2>
+            <button type="button" class="copy-btn" id="copy-btn" onclick="copyReply()">Copy Reply</button>
+        </div>
+        <div id="reply-output"></div>
+        <div class="telemetry" id="telemetry-info"></div>
+    </div>
+
+    <script>
+        const API_URL = "/api/process";
+
+        const SAMPLES = [
+            "Hello, I paid for express boda delivery to Kilimani at 10 AM today (Order #409). It is now 3 PM and my client hasn't received the spare parts, and your rider's phone is switched off! What kind of service is this?",
+            "We ordered two full nyama choma platters and ugali for delivery to our office in Upper Hill. The food arrived 45 minutes late, completely cold, and the kachumbari was missing. Very disappointed!",
+            "Hi host, we just checked into your Kileleshwa Airbnb for our 3-day work trip and the Wi-Fi is not connecting at all, plus the hot shower switch isn't heating up. We have client calls in an hour!"
+        ];
+
+        function loadSample(index) {
+            document.getElementById("complaint-input").value = SAMPLES[index];
+            document.getElementById("error-box").style.display = "none";
+        }
+
+        async function generateReply() {
+            const inputEl = document.getElementById("complaint-input");
+            const submitBtn = document.getElementById("submit-btn");
+            const errorBox = document.getElementById("error-box");
+            const outputCard = document.getElementById("output-card");
+            const replyOutput = document.getElementById("reply-output");
+            const telemetryInfo = document.getElementById("telemetry-info");
+
+            const text = inputEl.value.trim();
+
+            if (!text) {
+                errorBox.textContent = "Please paste a customer complaint message before clicking Generate Reply.";
+                errorBox.style.display = "block";
+                return;
+            }
+
+            // Lock UI and show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Drafting Professional Reply...";
+            errorBox.style.display = "none";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: text })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Server error occurred while generating reply.");
+                }
+
+                replyOutput.textContent = data.result;
+                telemetryInfo.textContent = `Tokens: ${data.input_tokens} in / ${data.output_tokens} out | Est. Cost: KES ${data.cost_kes}`;
+                outputCard.style.display = "block";
+
+            } catch (err) {
+                if (err instanceof TypeError) {
+                    errorBox.textContent = "Network error: Could not connect to the backend server. Ensure Flask is running.";
+                } else {
+                    errorBox.textContent = err.message;
+                }
+                errorBox.style.display = "block";
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Generate Reply";
+            }
+        }
+
+        function copyReply() {
+            const replyText = document.getElementById("reply-output").textContent;
+            const copyBtn = document.getElementById("copy-btn");
+            navigator.clipboard.writeText(replyText).then(() => {
+                copyBtn.textContent = "Copied!";
+                setTimeout(() => { copyBtn.textContent = "Copy Reply"; }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
