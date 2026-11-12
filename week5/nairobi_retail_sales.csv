@@ -1,0 +1,13 @@
+﻿transaction_id,item_name,quantity_sold,unit_price_kes,current_stock,restock_level
+TXN-1001,Hostess Maize Meal 2kg,14,210,18,25
+TXN-1002,Brookside Fresh Milk 500ml,28,65,42,30
+TXN-1003,Kabras Sugar 2kg,11,340,9,15
+TXN-1004,Elianto Corn Oil 2L,6,780,14,10
+TXN-1005,Menengai Cream Bar Soap 800g,19,175,22,15
+TXN-1006,Ketepa Pride Tea Leaves 500g,9,290,7,12
+TXN-1007,Daawat Basmati Rice 2kg,8,520,16,10
+TXN-1008,Hostess Maize Meal 2kg,10,210,18,25
+TXN-1009,Broadways Sliced Bread 400g,22,65,5,20
+TXN-1010,Royco Mchuzi Mix 200g,15,145,25,15
+TXN-1011,Brookside Fresh Milk 500ml,12,65,42,30
+TXN-1012,Kenyatta Charger Bulbs 9W,7,250,4,10
