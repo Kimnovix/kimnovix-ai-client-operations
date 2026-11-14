@@ -1,4 +1,5 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
 week1/day1_api.py
@@ -8,3 +9,13 @@ week2/
 # Local Claude Project Files
 CLAUDE.md
 CLAUDE_HANDOVER.md
+
+# Day 23 sales email report (contains shop sales figures)
+week5/email_log.txt
+week5/email_report_preview.html
+
+# Day 24 scheduled runner (runtime files)
+week5/run_log.txt
+week5/scheduler_state.json
+week5/scheduler.lock
+week5/scheduler_state.json.tmp

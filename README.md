@@ -1,6 +1,6 @@
 # Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, and automated email reporting built for field operations and enterprise integration in Kenya.
+API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, and self-healing scheduled jobs built for field operations and enterprise integration in Kenya.
 
 ## Live Deployed Applications (Render Cloud)
 
@@ -25,6 +25,7 @@ Domains covered:
 - **Financial & Legal Operations:** dairy co-op payment calculators and an automated file sorter for law firms.
 - **Customer Service, Healthcare & Productivity:** Matatu SACCO assistant, Kisumu Pharmacy stateful chatbot, real estate JSON extractor, AI meeting notes summarizer, and the AI complaint responder.
 - **Retail & Inventory Reporting:** an automated evening sales email that summarises revenue, receipts, top sellers, and restock alerts for shop owners.
+- **Scheduling & Unattended Automation:** a 6:00 PM job runner for Windows Task Scheduler, cron, or a background loop that retries through power cuts and dropped internet, catches up after the shop PC was off, and never emails the owner twice.
 - **Market Intelligence & HR:** a polite, robots.txt-aware web scraper that produces Excel-safe competitive listing reports.
 - **Web Applications & Cloud Deployment:** Flask servers under Gunicorn on Render, CORS-enabled JSON endpoints, and asynchronous JavaScript (`fetch`) dashboards.
 
@@ -84,6 +85,16 @@ Domains covered:
   - **Robust CSV handling:** checks for missing columns up front, tolerates `1,200` or `KES 1200` style numbers, treats differently-cased item names as one product, counts unique receipt IDs (a multi-item receipt counts once), and falls back to `cp1252` for CSVs re-saved by Excel on Windows.
   - **Safe to schedule:** `--dry-run` builds the report without sending, `--csv` points at any day's file, and the script returns exit code `0` (sent), `1` (bad/missing CSV), or `2` (email not sent), which Windows Task Scheduler and cron can act on.
 
+- **`week5/day24_scheduled_sales_runner.py`:** Turns the Day 23 report into a hands-off daily job for a shop computer. It runs Day 23 for you and writes one line per run to `week5/run_log.txt`: `YYYY-MM-DD HH:MM:SS | SUCCESS/ERROR/SKIPPED | rows_processed=<N> | <detail>`.
+  - **Three ways to run:** a single run (for Windows Task Scheduler or cron), `--daemon` (stays open and uses the `schedule` library), and `--install-task` (registers the Windows task in one command; on Linux it prints the two crontab lines to paste).
+  - **Catches up after power cuts:** with `--catch-up`, the job asks "has the latest 6:00 PM report gone out yet?" and only sends if it has not. The Windows task fires at 6:00 PM, retries every 30 minutes for 4 hours, starts late if the PC was off at 6:00 PM (`StartWhenAvailable`), and runs again 3 minutes after the attendant logs in the next morning. However many triggers fire, the owner gets **one** email per day. Late reports are tagged `late_by=14h05m` in the log.
+  - **No double runs:** an operating-system file lock (`week5/scheduler.lock`) stops two copies running at once (for example the daemon and the task both firing at 6:00 PM). The lock frees itself if the PC crashes, so there is never a stale lock to delete by hand.
+  - **Honest results:** reads Day 23's exit codes (`0` sent, `1` CSV problem, `2` email not sent) and logs the real error line Day 23 printed, not the closing `=====` banner. `rows_processed` comes from Day 23's own CSV parser, so the log count always matches the email.
+  - **Patient with slow networks:** a 5-minute default timeout (`--timeout`) leaves room for Day 23's three Gmail attempts, instead of killing a good retry halfway through a send.
+  - **Friendly time input:** `--time` accepts `18:00`, `6pm` or `"6:30 PM"` and rejects `25:00` or a bare `6` before anything is scheduled.
+  - **Windows-proof task:** registered from an XML definition, so paths with spaces, the working folder, the 261-character `schtasks /TR` limit, and laptop battery rules (it still runs on battery during a KPLC outage) are all handled. It uses `pythonw.exe`, so no black console window pops up for staff to close mid-run.
+  - **`--status` health check:** shows when the last email actually went out, how many rows it covered, and the last 5 log lines; returns exit code `1` if nothing has been sent for 26 hours, so it can feed a monitoring alert.
+
 ### Legal & Ethical Notes for Scraping
 
 *This is practical guidance, not legal advice. Have a lawyer review any commercial engagement.*
@@ -99,8 +110,66 @@ Domains covered:
 - **Use a Gmail App Password, never your normal password.** Turn on 2-Step Verification on the sending Google account, then create a 16-character App Password and put it in `.env` as `GMAIL_APP_PASSWORD`.
 - **Use a dedicated sending account** (for example `shopname.reports@gmail.com`) so a leaked password never exposes the owner's personal inbox. Gmail allows roughly 500 messages a day from a personal account, far more than a daily report needs.
 - **Keep reports out of Git:** `week5/email_log.txt` and `week5/email_report_preview.html` contain the shop's sales figures; add both to `.gitignore`.
-- **Schedule it:** run at 6:00 PM daily with Windows Task Scheduler (`python week5\day23_sales_email_report.py`) or a Linux cron entry (`0 18 * * * /path/to/venv/bin/python week5/day23_sales_email_report.py`).
+- **Schedule it:** run at 6:00 PM daily with Windows Task Scheduler (`python week5\day23_sales_email_report.py`) or a Linux cron entry (`0 18 * * * /path/to/venv/bin/python week5/day23_sales_email_report.py`). For retries, power-cut catch-up and a once-per-day guarantee, schedule the Day 24 runner instead (see below).
 - **Customer data:** the report contains sales totals only. If you later add customer names or phone numbers (for example M-Pesa payers), Kenya's **Data Protection Act, 2019** applies; send only to people the owner has authorised.
+
+### Scheduling & Reliability Notes (Day 24)
+
+**3-Step Client Setup Guide (shop computer, Windows 10/11)**
+
+Do this once, signed in as the Windows user the shop attendant normally uses.
+
+1. **Test it by hand.** Open PowerShell in the project folder, activate the environment, and run a preview:
+   ```powershell
+   .\venv\Scripts\Activate.ps1
+   python week5\day24_scheduled_sales_runner.py --dry-run
+   ```
+   You should see a line ending in `SUCCESS | rows_processed=12 | mode=dry_run_preview ...`. If you see `ERROR`, the message after `msg=` says what to fix (usually a missing `.env` value or CSV column).
+2. **Install the 6:00 PM task.**
+   ```powershell
+   python week5\day24_scheduled_sales_runner.py --install-task
+   # different time:  --time "6:30 PM"     different owner email:  --to "owner@shop.co.ke"
+   ```
+   It prints `[INSTALLED]` with the program and arguments it registered.
+3. **Prove it works today.** Fire the task once and check the result:
+   ```powershell
+   schtasks /Run /TN Kimnovix_Daily_Sales_Report_6PM
+   python week5\day24_scheduled_sales_runner.py --status
+   ```
+   The owner receives the email and `--status` ends with `[OK] Reports are going out on schedule.` To remove it later: `--uninstall-task`.
+
+**What happens on a bad day**
+
+| Situation | What the runner does |
+| :--- | :--- |
+| Internet down at 6:00 PM | Day 23 tries Gmail 3 times; the task retries every 30 min until 10:00 PM. First success wins, later retries do nothing. |
+| PC switched off (or power cut) at 6:00 PM, on again at 8:00 AM | Windows starts the missed run as soon as it can, and the logon trigger runs `--catch-up` 3 minutes after the attendant signs in. Yesterday's report goes out once, tagged `late_by=` in the log. |
+| PC asleep at 6:00 PM | Same as above when it wakes (`StartWhenAvailable`). The task never wakes the PC on purpose. |
+| Daemon and task both running | The file lock lets one run; the other stops quietly. |
+| Run stuck for 5 minutes | Stopped and logged as `ERROR ... timed out`. Check `email_log.txt` to see whether Gmail accepted it. |
+
+**Good to know**
+- **Catch-up sends the CSV that is there when it runs.** If the till export overwrites `nairobi_retail_sales.csv` each morning, run catch-up before opening sales, or have the POS export one file per day.
+- **Check the PC clock.** Old shop PCs with a flat CMOS battery reset their clock after a power cut, and every schedule then fires at the wrong time. If the date on the taskbar is wrong after an outage, replace the coin battery (about KES 150).
+- **Linux:** `--install-task` prints two crontab lines: the on-time run and a `*/30` catch-up line. Paste both with `crontab -e`.
+- **Keep runtime files out of Git:** add `week5/run_log.txt`, `week5/scheduler_state.json` and `week5/scheduler.lock` to `.gitignore`.
+- **Google Drive-synced Desktop:** the state file is written to a temp file and swapped in with retries, so Drive briefly holding the file does not lose the "last sent" record.
+- **Keep the synced folder "Available offline":** in Google Drive for Desktop, never set the project folder to "Online only" (streamed), or a scheduled run on a PC without internet may find placeholder files instead of the real scripts.
+- **The task waits for a login:** the task runs as the signed-in shop user and stores no Windows password. If Windows Update restarts the PC overnight, the missed report goes out about 3 minutes after the next login.
+
+**Day 24 Proof of Run (verified 13–14 Nov 2026, Windows 11)**
+
+These are the exact lines from `week5/run_log.txt`, copied verbatim. The log file itself stays out of Git (it is in `.gitignore`), so this block is the public record. The lines contain no sales figures or email addresses.
+
+```text
+2026-11-13 19:39:11 | SUCCESS | rows_processed=12 | mode=email_sent trigger=manual exit_code=0 skipped_rows=0 duration=5.7s
+2026-11-13 19:40:03 | SUCCESS | rows_processed=12 | mode=email_sent trigger=manual exit_code=0 skipped_rows=0 duration=7.1s
+2026-11-13 20:32:42 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=12.5s
+2026-11-13 20:49:07 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=6.6s
+2026-11-14 09:30:09 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=7.0s
+```
+
+What it shows: 5 runs, **5 `SUCCESS`, 0 `ERROR`, 0 `SKIPPED`**. Two manual runs and three scheduled `--catch-up` runs from the Windows task, each processing all 12 receipts with none rejected (`skipped_rows=0`) and each finishing in 6 to 13 seconds. Every line has a matching "sent" entry in the private `email_log.txt`. The scheduled test runs used test times instead of 6:00 PM; the task was then reset to the production time with `--install-task --time 18:00`.
 
 ---
 
@@ -134,6 +203,7 @@ Domains covered:
    python week5/day21_file_sorter.py
    python week5/day22_job_market_scraper.py
    python week5/day23_sales_email_report.py --dry-run
+   python week5/day24_scheduled_sales_runner.py --dry-run
    ```
 
 ---
@@ -282,6 +352,15 @@ python week5/day23_sales_email_report.py
 python week5/day23_sales_email_report.py --csv week5/nairobi_retail_sales.csv --to "owner@example.com, manager@example.com"
 ```
 
+```bash
+# Day 24: run once, check health, or keep it scheduled
+python week5/day24_scheduled_sales_runner.py --dry-run
+python week5/day24_scheduled_sales_runner.py --catch-up          # sends only if today's report has not gone out
+python week5/day24_scheduled_sales_runner.py --status
+python week5/day24_scheduled_sales_runner.py --daemon --time 6pm
+python week5/day24_scheduled_sales_runner.py --install-task      # Windows task / Linux crontab lines
+```
+
 **Day 23 Sales Email Report Example Output (`--dry-run`, 12 sample receipts):**
 ```text
 ======================================================
@@ -307,6 +386,15 @@ URGENT RESTOCK FLAGS:
 ======================================================
 ```
 
+
+**Day 24 Scheduled Runner Example `week5/run_log.txt`:**
+```text
+2026-11-12 18:00:04 | ERROR | rows_processed=12 | mode=email_not_sent trigger=scheduled exit_code=2 msg=[ERROR] Could not send email after 3 attempts. Preview saved at 'week5\email_report_preview.html'.
+2026-11-12 18:30:03 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=3.4s late_by=0h30m
+2026-11-14 08:03:12 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=2.9s late_by=14h03m
+```
+*(Line 1: Safaricom data was down at 6 PM. Line 2: the 6:30 PM retry delivered it. Line 3: the PC was off on the 13th at 6 PM; the report went out once when the attendant logged in next morning.)*
+
 ---
 
 ## Commercial Pricing & Kenyan SME Market Valuation
@@ -320,3 +408,4 @@ URGENT RESTOCK FLAGS:
 | **`day21_file_sorter.py`** | Law Firms, Accountants, Real Estate | **KES 12,000 – 15,000** (one-off) | N/A (local script) | Automates weekly digital filing. Saves a junior clerk or paralegal about 4 hours a week (200 hours a year), paying for itself in the first month. |
 | **`day22_job_market_scraper.py`** | Nairobi HR Consultancies & Recruiters | **KES 25,000** (one-off) | **KES 8,000 / month** | Replaces manual weekly copy-paste research of competitor job boards (an estimated 4 to 6 analyst hours a week). Retainer covers the scheduled weekly run, fixing the scraper when a board changes its layout, and delivery of the Excel-ready report. Only for sources the client is permitted to collect from (see Legal & Ethical Notes). |
 | **`day23_sales_email_report.py`** | Nairobi Retail Shops, Agro-Vets, Hardware Stores & Wholesale Depots | **KES 18,000** (one-off) | **KES 3,500 / month** | Build fee covers adapting the script to the client's POS or M-Pesa till export, branding the email, Gmail App Password setup, and scheduling the 6:00 PM run on the shop PC. Retainer covers monitoring the daily send log, fixing breakages when the POS export format changes, adding recipients, and tuning restock levels each season. Replaces the owner's nightly phone call or WhatsApp to the shop attendant and catches stock-outs before customers walk to the competitor; one saved stock-out of a fast mover like maize meal or milk covers the monthly retainer. Running cost is near zero (Gmail SMTP is free). |
+| **`day24_scheduled_sales_runner.py`** | Any Day 23 client: Retail Shops, Agro-Vets, Hardware Stores, Wholesale Depots | **KES 8,000** (add-on to Day 23) or **KES 24,000** bundled with Day 23 | **+KES 1,500 / month** on the Day 23 retainer | The difference between a script and a service. Covers installing the self-healing 6:00 PM task on the shop PC, a test send with the owner, and monthly `--status` checks so a silent failure is caught within a day, not a week. The catch-up and retry logic protects the report on days with KPLC outages or dropped data bundles, which is exactly when the owner most wants the numbers. |
