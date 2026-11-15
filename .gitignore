@@ -19,3 +19,10 @@ week5/run_log.txt
 week5/scheduler_state.json
 week5/scheduler.lock
 week5/scheduler_state.json.tmp
+
+# Day 25 pet clinic stock alert (runtime files; the CSV and the script stay tracked)
+week5/pet_clinic_automation.log
+week5/pet_clinic_stock_preview.html
+week5/pet_clinic_state.json
+week5/pet_clinic_state.json.tmp
+week5/pet_clinic_scheduler.lock

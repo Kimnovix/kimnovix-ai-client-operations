@@ -1,6 +1,6 @@
 # Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, and self-healing scheduled jobs built for field operations and enterprise integration in Kenya.
+API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, and daily stock alerts built for field operations, veterinary clinics, and enterprise integration in Kenya.
 
 ## Live Deployed Applications (Render Cloud)
 
@@ -18,11 +18,12 @@ API-powered Python command-line tools, AI automated workflows, full-stack web ap
 
 ## What Is This Repository?
 
-A progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, autonomous tool-calling agents, production CLI utilities, cloud-deployed RESTful web applications, local file automation, ethical web scraping, and automated email notifications.
+A progressive suite of practical software tools demonstrating API integrations, prompt engineering, stateful memory, autonomous tool-calling agents, production CLI utilities, cloud-deployed RESTful web applications, local file automation, ethical web scraping, automated email notifications, and scheduled inventory alerts.
 
 Domains covered:
 - **Agriculture & Logistics:** client trackers, real-time weather monitoring (OpenWeatherMap API), an autonomous tea harvest advisory agent, and a cloud-deployed poultry production tracker.
-- **Financial & Legal Operations:** dairy co-op payment calculators and an automated file sorter for law firms.
+- **Financial & Legal Operations:** dairy co-op payment calculators (`day10_project/`) and an automated file sorter for law firms.
+- **Veterinary & Clinical Inventory:** a 7:00 AM dispensary stock alert for a Nairobi pet clinic that flags vaccines, anaesthetics, antibiotics, and surgical consumables below minimum stock and says exactly how many to order.
 - **Customer Service, Healthcare & Productivity:** Matatu SACCO assistant, Kisumu Pharmacy stateful chatbot, real estate JSON extractor, AI meeting notes summarizer, and the AI complaint responder.
 - **Retail & Inventory Reporting:** an automated evening sales email that summarises revenue, receipts, top sellers, and restock alerts for shop owners.
 - **Scheduling & Unattended Automation:** a 6:00 PM job runner for Windows Task Scheduler, cron, or a background loop that retries through power cuts and dropped internet, catches up after the shop PC was off, and never emails the owner twice.
@@ -37,7 +38,11 @@ Domains covered:
 - **`week1/day2_weather.py` (Authenticated Weather Script):** Loads API credentials securely from `.env` using `python-dotenv` and handles HTTP `400`, `401`, `404`, `429`, and `500+` errors explicitly.
 - **`week1/weather_digest.py` (Public API Baseline):** Fetches and formats real-time Eldoret atmospheric metrics from Open-Meteo.
 
-## Week 3: AI API Integrations
+## Week 2: Python Foundations Capstone
+
+- **`day10_project/` (Kiambu Dairy Co-op Payment Calculator):** Calculates farmer milk payouts in KES using an externalised rate file (`price.txt`) and defensive input validation. (Week 2's daily practice files in `week2/` are kept local and are not pushed to GitHub.)
+
+## Week 3: AI API Integrations (Anthropic Claude SDK, tagged `v1.0`)
 
 - **`week3/day11_sacco_bot.py`:** An AI-powered command-line assistant using the Anthropic SDK (`claude-haiku-4-5-20251001`). It acts as a Matatu SACCO secretary, using a strict system prompt to answer member queries about balances, meetings, and fees while gracefully handling API errors and token tracking.
 - **`week3/day12_property_parser.py`:** An extraction script demonstrating Prompt Engineering. It takes messy, unstructured WhatsApp inquiries and uses few-shot prompting to force Claude into returning strictly formatted JSON. The JSON is then parsed into a Python dictionary.
@@ -94,6 +99,19 @@ Domains covered:
   - **Friendly time input:** `--time` accepts `18:00`, `6pm` or `"6:30 PM"` and rejects `25:00` or a bare `6` before anything is scheduled.
   - **Windows-proof task:** registered from an XML definition, so paths with spaces, the working folder, the 261-character `schtasks /TR` limit, and laptop battery rules (it still runs on battery during a KPLC outage) are all handled. It uses `pythonw.exe`, so no black console window pops up for staff to close mid-run.
   - **`--status` health check:** shows when the last email actually went out, how many rows it covered, and the last 5 log lines; returns exit code `1` if nothing has been sent for 26 hours, so it can feed a monitoring alert.
+
+- **`week5/day25_pet_clinic_stock_alert.py` (Week 5 Capstone — Nairobi Pet Clinic Daily Stock Alert):** An automated dispensary watchdog for **Kilimani Vet & Pet Care Clinic (Nairobi)**. Every morning it reads `week5/pet_clinic_inventory.csv` (columns `item name`, `current stock`, `minimum stock`; 12 sample vaccines, anaesthetics, antibiotics, parasite treatments and surgical consumables) and emails a prioritised reorder list.
+  - **Clear rules:** an item is flagged only when `current < minimum`. Items exactly **at** minimum are not flagged but appear on a **Watch List** in the email, so procurement sees them coming. A minimum of `0` is never flagged.
+  - **Two numbers per item:** **Deficit to Min** (`minimum - current`, the units needed just to reach the minimum) and **Recommended Order**, which tops up to the minimum plus a **25% clinical safety buffer** (rounded up, at least +2 units). Example: minimum 15, current 6 gives a deficit of 9 and an order of 13.
+  - **Priority:** `CRITICAL` when an item is out of stock, has 2 or fewer units left, or is at or below one third of its minimum; otherwise `LOW`. CRITICAL items are listed first and the subject line reads `[URGENT RESTOCK]`.
+  - **No duplicate emails:** a SHA-256 fingerprint of today's date plus the exact shortage list is saved in `week5/pet_clinic_state.json`. Running it three times in a row sends one email. A *new* shortage later the same day changes the fingerprint and is sent; `--force` resends on purpose.
+  - **Once-a-day scheduled task:** `--install-task` registers a Windows task (from XML, using `pythonw.exe`, no console window) that runs at 7:00 AM, retries every 30 minutes for 4 hours, starts late if the PC was off, and runs 3 minutes after login. The task uses `--scheduled`, which sends at most one alert per day and never before the set time. On Linux it prints two crontab lines. `--uninstall-task` removes it (including the older `_7AM` task name).
+  - **No overlapping runs:** an operating-system file lock (`week5/pet_clinic_scheduler.lock`, `msvcrt` on Windows, `fcntl` on Linux) stops a manual run and the task from both emailing at the same moment. The lock frees itself if the PC crashes.
+  - **Never invents data:** the 12-item sample CSV is only created during `--dry-run`. A real run with a missing stock sheet stops with exit code `1` and a logged error instead of emailing made-up shortages.
+  - **Excel-proof CSV reading:** UTF-8 (with or without BOM), then `cp1252`, then `latin-1`; headers like `Item_Name` or `MINIMUM STOCK`; `;` delimiters from regional Excel settings; `1,200`-style numbers; blank `,,` rows ignored; duplicate item names merged conservatively (lowest stock, highest minimum); negative, decimal and text quantities skipped and counted in the email.
+  - **Graceful on empty data:** a header-only, blank or 0-byte CSV exits `0` without crashing and without sending, but is logged as a `WARNING`, because an empty stock sheet means the clinic gets no alerts at all.
+  - **Audit log:** every run writes one line to `week5/pet_clinic_automation.log` (`YYYY-MM-DD HH:MM:SS | LEVEL | message`). Exit codes: `0` sent/skipped/nothing low, `1` CSV problem, `2` email not sent.
+  - **`--self-test`:** 10 automated checks (the 3 mandatory Step 3 checks plus boundaries, Excel files, scheduling, locking and failures). It runs in a temporary folder with a fake mail sender, so it never touches the clinic's real CSV, log or state and never sends an email.
 
 ### Legal & Ethical Notes for Scraping
 
@@ -167,9 +185,103 @@ These are the exact lines from `week5/run_log.txt`, copied verbatim. The log fil
 2026-11-13 20:32:42 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=12.5s
 2026-11-13 20:49:07 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=6.6s
 2026-11-14 09:30:09 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=7.0s
+2026-11-14 18:00:09 | SUCCESS | rows_processed=12 | mode=email_sent trigger=scheduled exit_code=0 skipped_rows=0 duration=7.9s
 ```
 
-What it shows: 5 runs, **5 `SUCCESS`, 0 `ERROR`, 0 `SKIPPED`**. Two manual runs and three scheduled `--catch-up` runs from the Windows task, each processing all 12 receipts with none rejected (`skipped_rows=0`) and each finishing in 6 to 13 seconds. Every line has a matching "sent" entry in the private `email_log.txt`. The scheduled test runs used test times instead of 6:00 PM; the task was then reset to the production time with `--install-task --time 18:00`.
+What it shows: 6 runs, **6 `SUCCESS`, 0 `ERROR`, 0 `SKIPPED`**. Two manual runs and four scheduled `--catch-up` runs from the Windows task, each processing all 12 receipts with none rejected (`skipped_rows=0`) and each finishing in 6 to 13 seconds. Every line has a matching "sent" entry in the private `email_log.txt`. The first three scheduled runs used test times; the task was then reset to the production time with `--install-task --time 18:00`, and the last line (14 Nov, 6:00 PM) is the first run at that production time.
+
+### Daily Stock Alert Notes (Day 25)
+
+**Week 5 Capstone: One-Page Client Guide (Kilimani Vet & Pet Care Clinic, Nairobi)**
+
+*Written for the Head Veterinarian, Practice Manager and Procurement Officer. No technical knowledge needed.*
+
+**What it does**
+
+Every morning at **7:00 AM**, before the clinic opens, the reception computer checks your dispensary stock sheet (`pet_clinic_inventory.csv`). If any vaccine (DHPPi, Rabies), anaesthetic (Ketamine, Propofol), antibiotic, parasite treatment (Bravecto, NexGard) or surgical consumable (Vicryl sutures, IV catheters, Parvo test kits) has fallen **below** its minimum, the Head Vet and Procurement Officer receive one colour-coded email, the **Dispensary Reorder List**, showing for each item:
+
+1. **Current** stock on the shelf or in the fridge.
+2. **Minimum** stock the clinic has agreed to keep.
+3. **Deficit to Min:** how many units just to get back to the minimum.
+4. **Recommended Order:** how many to actually order, with a 25% safety buffer for emergency cases.
+5. **Priority:** red **CRITICAL** (out of stock, 2 or fewer left, or at a third of the minimum or less) or amber **LOW**. Critical items are always at the top.
+
+Items sitting exactly **at** their minimum are listed at the bottom as a **Watch List**: nothing to order yet, but they will be on tomorrow's list after the next use.
+
+**What the clinic does each day (2 minutes)**
+
+- Update the **current stock** column in the stock sheet at closing time, after the day's dispensing. The alert is only as accurate as the sheet: a smoke alarm only works if it has a battery.
+- Keep the file name and the three column headings exactly as they are. Save as **CSV**, not as an Excel workbook.
+- When a new item is stocked, add a row with its name, current stock and minimum stock.
+- Leave the reception PC switched on, or switch it on and log in as usual in the morning.
+
+**What happens on a bad day**
+
+| Situation | What the alert does |
+| :--- | :--- |
+| Internet or Safaricom data down at 7:00 AM | Tries Gmail 3 times, then the task tries again every 30 minutes until 11:00 AM. You get one email, as soon as the line is back. |
+| PC off or a KPLC power cut at 7:00 AM | Runs about 3 minutes after the first person logs in. Still one email that day. |
+| Someone also runs it by hand | Only one copy runs at a time, and the same list is never emailed twice in a day. |
+| A new shortage appears later the same day and someone runs it again | A fresh email is sent, because the list has changed. |
+| Stock sheet missing, empty, or a row has a typo | No made-up alerts. The problem is written to the log; rows with bad numbers are skipped and the email says how many, so they can be fixed. |
+| Nothing is below minimum | No email. Silence means all stock is at or above minimum. |
+
+**One-time setup (done by Kimnovix on the reception PC)**
+
+1. Install Python and the tool, and add the clinic's sending Gmail account (with an App Password) and the recipients' addresses to the private `.env` file.
+2. Load the clinic's real item list and agreed minimums into `pet_clinic_inventory.csv`, then send a preview (`--dry-run`) and one real test email together with the Head Vet.
+3. Switch on the 7:00 AM schedule (`--install-task --time 07:00`) and fire it once (`schtasks /Run /TN Kimnovix_PetClinic_Stock_Alert`) to prove it works.
+
+**What it replaces and why it pays for itself**
+
+- **Replaces** 30 to 45 minutes of manual fridge and shelf counting and reorder list writing every morning, about **15 hours a month** of a veterinary technician's time (roughly **KES 7,500 a month** at KES 500 an hour).
+- **Prevents** the costly moments: no rabies vaccine for a walk-in, no ketamine for an emergency spay, no Parvo test kit for a vomiting puppy. Avoiding just two lost vaccination or emergency cases a month covers the **KES 12,000** setup fee within the first month, and the **KES 2,000 a month** support fee is far below the technician time it saves.
+
+**Technical notes**
+
+- **Use a Gmail App Password**, exactly as for Day 23 (see Email Automation Notes). `REPORT_RECIPIENT_EMAIL` takes a comma-separated list, for example `headvet@clinic.co.ke, procurement@clinic.co.ke`.
+- **Keep runtime files out of Git:** `week5/pet_clinic_automation.log`, `week5/pet_clinic_stock_preview.html`, `week5/pet_clinic_state.json` (and its `.tmp` swap file) and `week5/pet_clinic_scheduler.lock` are in `.gitignore`. The sample `week5/pet_clinic_inventory.csv` and the script are tracked. For a real client, keep their actual stock sheet out of the public repository.
+- **If you change the time,** run `--install-task --time 06:30` again; it replaces the existing task. The task name no longer contains "7AM", because the time can change; `--install-task` and `--uninstall-task` also remove the old `Kimnovix_PetClinic_Stock_Alert_7AM` task if it exists, so the clinic never receives two copies.
+- **Controlled drugs:** ketamine is a controlled drug. The tool only reports stock levels; ordering, storage and record-keeping still follow the clinic's controlled-drug register and the regulator's rules.
+- **Google Drive-synced Desktop and PC clock:** the same advice as Day 24 applies (keep the folder "Available offline"; replace a flat CMOS battery if the clock resets after power cuts).
+
+**Day 25 Verification (`--self-test`, 14 Nov 2026, Python 3.13)**
+
+```text
+====================================================================
+   STEP 3 AUTOMATED VERIFICATION SUITE (NAIROBI PET CLINIC)
+   Runs in a temp folder: your real CSV, log and state are untouched.
+====================================================================
+[PASS] Test 1 (Client Data): 12 items checked, 8 low-stock (2 CRITICAL), deficit and +25% order maths correct
+[PASS] Test 2 (Empty Data): header-only, 0-byte and blank-rows CSVs exit 0, no email, WARNING logged
+[PASS] Test 3 (3x Consecutive Runs): real pipeline run 3x: 1 email sent, 2 duplicates blocked and logged
+[PASS] Test 4 (Min-Stock Boundaries): == minimum not flagged (watch list), minimum 0, out of stock, duplicates, bad rows, 1,200 parsing
+[PASS] Test 5 (Windows/Excel CSVs): cp1252 accents, Item_Name headers, ';' delimiter, wrong columns, HTML escaping
+[PASS] Test 6 (New Shortage + --force): new shortage resends, identical state does not, --force overrides
+[PASS] Test 7 (Scheduled Once-a-Day): waits until 07:00, catches up if PC was off, once per day, next day sends
+[PASS] Test 8 (Overlap Lock): second run steps aside while one holds the lock; lock released afterwards
+[PASS] Test 9 (Failure Handling): missing sheet exits 1 without fake data; failed send exits 2 and is retried
+[PASS] Test 10 (--time Parsing): 7:00 / 7am / 6:30 PM accepted, 25:00 and '7' rejected
+====================================================================
+   ALL 10 CHECKS PASSED (including the 3 Step 3 mandatory checks)
+====================================================================
+```
+
+What it shows: the three mandatory Step 3 checks pass against the **real** pipeline, not just helper functions. Test 1 is the client data (12 items, 8 below minimum). Test 2 is empty data (no crash, no email). Test 3 runs the full pipeline three times in a row and proves exactly one email goes out, with the two repeats logged as `SKIPPED - Duplicate`.
+
+**Day 25 Live Proof of Run (verified 14–15 Nov 2026, Windows 11)**
+
+These are the exact lines from `week5/pet_clinic_automation.log`, copied verbatim. The log itself stays out of Git (it is in `.gitignore`), so this block is the public record. The lines contain no stock figures or email addresses.
+
+```text
+2026-11-14 21:31:40 | INFO | OK - Dry run processed 12 items (8 below minimum)
+2026-11-14 21:33:03 | INFO | OK - Sent stock alert to 1 recipient(s)
+2026-11-14 21:33:03 | INFO | OK - Processed 12 items (8 flagged, 2 critical, skipped_rows=0, trigger=manual)
+2026-11-15 09:20:02 | INFO | OK - Sent stock alert to 1 recipient(s)
+2026-11-15 09:20:02 | INFO | OK - Processed 12 items (8 flagged, 2 critical, skipped_rows=0, trigger=scheduled)
+```
+
+What it shows: a dry run, then a manual live send on 14 Nov. The last two lines are the real-world **power-off catch-up test**: the laptop was switched off at the 7:00 AM scheduled time on Sunday 15 Nov. When Windows was booted at about 9:20 AM, the `Kimnovix_PetClinic_Stock_Alert` task started by itself with nobody clicking anything (`trigger=scheduled`) and delivered the morning's alert: 12 items checked, 8 below minimum, 2 CRITICAL, no rows rejected. That proves unattended recovery from a missed 7:00 AM run, which is exactly what happens when a clinic PC is switched on late or after a KPLC outage. `week5/pet_clinic_state.json` recorded the send for 15 Nov, so any later scheduled retry that day sends nothing.
 
 ---
 
@@ -192,18 +304,21 @@ What it shows: 5 runs, **5 `SUCCESS`, 0 `ERROR`, 0 `SKIPPED`**. Two manual runs 
    ANTHROPIC_API_KEY=your_key_here
    OPENWEATHER_API_KEY=your_key_here
 
-   # Day 23 sales email report
+   # Day 23 sales email report (Day 24 and Day 25 use the same Gmail settings)
    GMAIL_ADDRESS=yourshop.reports@gmail.com
    GMAIL_APP_PASSWORD=abcd efgh ijkl mnop
    REPORT_RECIPIENT_EMAIL=owner@example.com, manager@example.com
    SHOP_NAME=Nairobi Retail Shop
    ```
+   For a client install of Day 25, `REPORT_RECIPIENT_EMAIL` is the clinic's Head Vet and Procurement Officer (or pass `--to`).
 4. Run any script, for example:
    ```bash
    python week5/day21_file_sorter.py
    python week5/day22_job_market_scraper.py
    python week5/day23_sales_email_report.py --dry-run
    python week5/day24_scheduled_sales_runner.py --dry-run
+   python week5/day25_pet_clinic_stock_alert.py --self-test
+   python week5/day25_pet_clinic_stock_alert.py --dry-run
    ```
 
 ---
@@ -361,6 +476,18 @@ python week5/day24_scheduled_sales_runner.py --daemon --time 6pm
 python week5/day24_scheduled_sales_runner.py --install-task      # Windows task / Linux crontab lines
 ```
 
+```bash
+# Day 25: test, preview, send, then schedule
+python week5/day25_pet_clinic_stock_alert.py --self-test         # 10 checks in a temp folder, sends nothing
+python week5/day25_pet_clinic_stock_alert.py --dry-run           # preview; creates the 12-item sample CSV if missing
+python week5/day25_pet_clinic_stock_alert.py                     # real run: emails only if something is below minimum
+python week5/day25_pet_clinic_stock_alert.py --to "headvet@example.com, procurement@example.com"
+python week5/day25_pet_clinic_stock_alert.py --force             # resend today's alert on purpose
+python week5/day25_pet_clinic_stock_alert.py --install-task --time 07:00
+python week5/day25_pet_clinic_stock_alert.py --uninstall-task
+python week5/day25_pet_clinic_stock_alert.py --daemon --time 7am # alternative: keep a window open
+```
+
 **Day 23 Sales Email Report Example Output (`--dry-run`, 12 sample receipts):**
 ```text
 ======================================================
@@ -395,6 +522,51 @@ URGENT RESTOCK FLAGS:
 ```
 *(Line 1: Safaricom data was down at 6 PM. Line 2: the 6:30 PM retry delivered it. Line 3: the PC was off on the 13th at 6 PM; the report went out once when the attendant logged in next morning.)*
 
+**Day 25 Pet Clinic Stock Alert Example Output (`--dry-run`, 12 sample items):**
+```text
+KILIMANI VET & PET CARE CLINIC - DAILY DISPENSARY STOCK ALERT
+Generated: 2026-11-14 (06:07 PM)
+====================================================================
+Total Items Audited    : 12
+Items Below Minimum    : 8 (2 CRITICAL)
+Items At/Above Minimum : 4
+
+ITEMS BELOW MINIMUM STOCK (PROCUREMENT ACTION REQUIRED):
+--------------------------------------------------------------------
+ 1. [CRITICAL] Canine Parvovirus Rapid Ag Test Kits
+    Current Stock: 3 | Minimum: 10 | Deficit to Min: +7 | Recommended Order: +10
+ 2. [CRITICAL] Ketamine HCl 100mg/ml Injectable (Vials)
+    Current Stock: 2 | Minimum: 6 | Deficit to Min: +4 | Recommended Order: +6
+ 3. [LOW] Amoxicillin-Clavulanate 250mg (Tablets)
+    Current Stock: 45 | Minimum: 100 | Deficit to Min: +55 | Recommended Order: +80
+ 4. [LOW] IV Catheters 22G Blue (Units)
+    Current Stock: 14 | Minimum: 30 | Deficit to Min: +16 | Recommended Order: +24
+ 5. [LOW] Nobivac DHPPi Canine Vaccine (Doses)
+    Current Stock: 6 | Minimum: 15 | Deficit to Min: +9 | Recommended Order: +13
+ 6. [LOW] Vicryl 2-0 Absorbable Sutures (Packs)
+    Current Stock: 5 | Minimum: 12 | Deficit to Min: +7 | Recommended Order: +10
+ 7. [LOW] NexGard Spectra Small Dog (Packs)
+    Current Stock: 4 | Minimum: 10 | Deficit to Min: +6 | Recommended Order: +9
+ 8. [LOW] Meloxicam Oral Suspension 15ml (Bottles)
+    Current Stock: 3 | Minimum: 8 | Deficit to Min: +5 | Recommended Order: +7
+
+Deficit to Min = units needed to reach the minimum. Recommended Order adds a 25% clinical safety buffer (at least +2 units).
+--------------------------------------------------------------------
+[PREVIEW] Saved HTML preview to: week5/pet_clinic_stock_preview.html
+[DRY RUN] Email dispatch skipped.
+```
+
+**Day 25 Example `week5/pet_clinic_automation.log` (3 runs in a row, then a new shortage):**
+```text
+2026-11-16 07:00:05 | INFO | OK - Sent stock alert to 2 recipient(s)
+2026-11-16 07:00:05 | INFO | OK - Processed 12 items (8 flagged, 2 critical, skipped_rows=0, trigger=scheduled)
+2026-11-16 07:02:11 | INFO | SKIPPED - Duplicate prevented (alert already sent today for the same 8 low-stock items)
+2026-11-16 07:02:40 | INFO | SKIPPED - Duplicate prevented (alert already sent today for the same 8 low-stock items)
+2026-11-16 14:15:22 | INFO | OK - Sent stock alert to 2 recipient(s)
+2026-11-16 14:15:22 | INFO | OK - Processed 12 items (9 flagged, 2 critical, skipped_rows=0, trigger=manual)
+```
+*(Lines 3 and 4: two manual re-runs with the same stock, blocked. Lines 5 and 6: an afternoon manual run after Propofol dropped below minimum, so the list changed and a fresh alert went out.)*
+
 ---
 
 ## Commercial Pricing & Kenyan SME Market Valuation
@@ -409,3 +581,4 @@ URGENT RESTOCK FLAGS:
 | **`day22_job_market_scraper.py`** | Nairobi HR Consultancies & Recruiters | **KES 25,000** (one-off) | **KES 8,000 / month** | Replaces manual weekly copy-paste research of competitor job boards (an estimated 4 to 6 analyst hours a week). Retainer covers the scheduled weekly run, fixing the scraper when a board changes its layout, and delivery of the Excel-ready report. Only for sources the client is permitted to collect from (see Legal & Ethical Notes). |
 | **`day23_sales_email_report.py`** | Nairobi Retail Shops, Agro-Vets, Hardware Stores & Wholesale Depots | **KES 18,000** (one-off) | **KES 3,500 / month** | Build fee covers adapting the script to the client's POS or M-Pesa till export, branding the email, Gmail App Password setup, and scheduling the 6:00 PM run on the shop PC. Retainer covers monitoring the daily send log, fixing breakages when the POS export format changes, adding recipients, and tuning restock levels each season. Replaces the owner's nightly phone call or WhatsApp to the shop attendant and catches stock-outs before customers walk to the competitor; one saved stock-out of a fast mover like maize meal or milk covers the monthly retainer. Running cost is near zero (Gmail SMTP is free). |
 | **`day24_scheduled_sales_runner.py`** | Any Day 23 client: Retail Shops, Agro-Vets, Hardware Stores, Wholesale Depots | **KES 8,000** (add-on to Day 23) or **KES 24,000** bundled with Day 23 | **+KES 1,500 / month** on the Day 23 retainer | The difference between a script and a service. Covers installing the self-healing 6:00 PM task on the shop PC, a test send with the owner, and monthly `--status` checks so a silent failure is caught within a day, not a week. The catch-up and retry logic protects the report on days with KPLC outages or dropped data bundles, which is exactly when the owner most wants the numbers. |
+| **`day25_pet_clinic_stock_alert.py` (Week 5 Capstone)** | Nairobi Veterinary Clinics, Pet Hospitals, Agro-Vets & Pharmacies | **KES 12,000** (one-off setup) or **KES 18,000** (setup + 3 months' support) | **KES 2,000 / month** | 7:00 AM dispensary low-stock alert for vaccines, anaesthetics, antibiotics and surgical consumables. Setup covers loading the clinic's real item list and agreed minimums, Gmail App Password and recipients, the scheduled task with catch-up, and a live test with the Head Vet. Retainer covers checking the log weekly, adjusting minimums as caseload changes (for example rabies campaigns), adding new items and recipients, and fixing the sheet when someone breaks a column. Saves about 15 hours a month of manual stock-taking (roughly KES 7,500 of technician time) and prevents clinical stock-outs; running cost is near zero (Gmail SMTP is free). |
