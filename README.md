@@ -305,7 +305,7 @@ What it shows: a dry run, then a manual live send on 14 Nov. The last two lines 
 **Technical notes**
 
 - **Requirements:** `pypdf` and `python-docx` (both in `requirements.txt`). Some bank and government PDFs use AES encryption; if the tool asks for it, run `pip install cryptography`.
-- **No `temperature` setting:** the Gemini draft asked for `temperature=0.0`. The current Anthropic SDK and API version no longer accept it (the first Windows run logged `Messages.create() got an unexpected keyword argument 'temperature'`). Consistency comes from the strict "only from the excerpts, cite every fact" rules instead.
+- **No `temperature` setting:** the current Anthropic SDK and API version no longer accept `temperature`, so the tool does not send it. Consistent, repeatable answers come from the strict rules instead: answer only from the document excerpts, cite every fact, and say "Not stated in the provided document" rather than guess.
 - **Keep runtime outputs out of Git:** `week6/document_qa.log`, `week6/contract_qa_report*.docx`, `week6/document_index*.csv`, `week6/*.tmp` and Word/Excel `~$` lock files are in `.gitignore`. The script and the sample contract PDF are tracked. Real client contracts must never go into the public repository; keep them in a separate folder outside the repo and pass them with `--file`.
 - **Scanned contracts:** a photocopied contract has no text layer. The tool says so instead of answering from nothing. OCR it first (for example with Microsoft Lens or Adobe Scan on a phone, saved as a searchable PDF), then run it again.
 - **Not legal advice:** the answers summarise what the document says. For disputed or high-value terms, the client confirms against the signed original with their advocate. The Word report carries this note.
@@ -332,7 +332,7 @@ What it shows: a dry run, then a manual live send on 14 Nov. The last two lines 
 ====================================================================
 ```
 
-What it shows: the five Day 26 brief checks (extraction, chunking, retrieval, Word report, batch index) plus the six edge cases found in review: broad "Summarize" questions read the whole contract, Excel formula injection is blocked, the chunker cannot loop forever, a report left open in Word is saved under a new name, a password-protected PDF gives a clear message, and one failed API call does not lose the other answers.
+What it shows: the five core checks (extraction, chunking, retrieval, Word report, batch index) plus six edge-case checks: broad "Summarize" questions read the whole contract, Excel formula injection is blocked, the chunker cannot loop forever, a report left open in Word is saved under a new name, a password-protected PDF gives a clear message, and one failed API call does not lose the other answers.
 
 ---
 
