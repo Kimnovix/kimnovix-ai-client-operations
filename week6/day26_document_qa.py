@@ -204,7 +204,7 @@ def generate_sample_contract_pdf(pdf_path: Path) -> Path:
             "------------------------------------------------------------------------",
             "1. CONTRACTING PARTIES",
             "Supplier: Rift Valley Livestock Feeds Ltd, Industrial Area, Eldoret.",
-            "Buyer: Oasis Swine Breeding & Production Unit, Kaptagat Road, Eldoret.",
+            "Buyer: Nova Swine Breeding & Production Unit, Kaptagat Road, Eldoret.",
             "Primary Contact (Supplier): Herbert Kamau, Operations Director.",
             "Primary Contact (Buyer): Production Foreman, Breeding Section.",
             "",
