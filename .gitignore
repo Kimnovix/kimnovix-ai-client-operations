@@ -26,3 +26,12 @@ week5/pet_clinic_stock_preview.html
 week5/pet_clinic_state.json
 week5/pet_clinic_state.json.tmp
 week5/pet_clinic_scheduler.lock
+
+# Day 26 document Q&A (runtime outputs; the script and the sample contract PDF stay tracked)
+week6/document_qa.log
+week6/contract_qa_report.docx
+week6/contract_qa_report_*.docx
+week6/document_index.csv
+week6/document_index_*.csv
+week6/*.tmp
+week6/~$*

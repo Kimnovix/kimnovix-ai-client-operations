@@ -1,6 +1,6 @@
 # Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, and daily stock alerts built for field operations, veterinary clinics, and enterprise integration in Kenya.
+API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, and AI document Q&A for contracts built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
 
 ## Live Deployed Applications (Render Cloud)
 
@@ -28,6 +28,7 @@ Domains covered:
 - **Retail & Inventory Reporting:** an automated evening sales email that summarises revenue, receipts, top sellers, and restock alerts for shop owners.
 - **Scheduling & Unattended Automation:** a 6:00 PM job runner for Windows Task Scheduler, cron, or a background loop that retries through power cuts and dropped internet, catches up after the shop PC was off, and never emails the owner twice.
 - **Market Intelligence & HR:** a polite, robots.txt-aware web scraper that produces Excel-safe competitive listing reports.
+- **Legal, Procurement & Contract Intelligence:** a PDF and Word document Q&A tool that answers questions about supply contracts with page citations, exports a Word Q&A report, and indexes whole folders of PDFs.
 - **Web Applications & Cloud Deployment:** Flask servers under Gunicorn on Render, CORS-enabled JSON endpoints, and asynchronous JavaScript (`fetch`) dashboards.
 
 ## Week 1: API Integrations & Automation
@@ -283,6 +284,56 @@ These are the exact lines from `week5/pet_clinic_automation.log`, copied verbati
 
 What it shows: a dry run, then a manual live send on 14 Nov. The last two lines are the real-world **power-off catch-up test**: the laptop was switched off at the 7:00 AM scheduled time on Sunday 15 Nov. When Windows was booted at about 9:20 AM, the `Kimnovix_PetClinic_Stock_Alert` task started by itself with nobody clicking anything (`trigger=scheduled`) and delivered the morning's alert: 12 items checked, 8 below minimum, 2 CRITICAL, no rows rejected. That proves unattended recovery from a missed 7:00 AM run, which is exactly what happens when a clinic PC is switched on late or after a KPLC outage. `week5/pet_clinic_state.json` recorded the send for 15 Nov, so any later scheduled retry that day sends nothing.
 
+## Week 6: Advanced AI Applications
+
+- **`week6/day26_document_qa.py` (Day 26: Working with Documents, Document Q&A & Contract Intelligence Tool):** Ask plain-English questions about a PDF or Word contract and get answers from Claude (`claude-haiku-4-5-20251001`) with a page citation for every fact, date, party and KES amount.
+  - **Step 1 & 2, extraction (`pypdf`, `python-docx`):** reads text page by page from `.pdf` files and in reading order (paragraphs and tables) from `.docx` files. Detects password-protected PDFs (with a clear "ask the client for an unlocked copy" message), damaged files, and scanned image pages that have no text and need OCR; a partly scanned contract still loads and the tool lists which pages it cannot see.
+  - **Self-contained sample:** `generate_sample_contract_pdf()` builds a realistic 2-page Kenyan agribusiness contract in pure Python, `week6/sample_feed_supply_contract.pdf` (Rift Valley Livestock Feeds Ltd supplying Oasis Swine Breeding & Production Unit, Eldoret: sow, weaner and boar feed at KES 1,428,000 a month, KEBS aflatoxin limits, Tuesday deliveries with wheel-dip biosecurity, Net 30 payment, KES 15,000/day late-delivery penalty, arbitration in Eldoret). The file is byte-for-byte identical every time it is generated, so it never shows up as a change in Git.
+  - **Chunking and retrieval:** splits long documents into overlapping, page-tagged chunks that end on a line or sentence and never start mid-word, then sends Claude only the best-matching chunks for a specific question. **Broad questions** ("Summarize this contract", "What are the key terms / risks?") get the **whole document** when it fits (up to about 60,000 characters, roughly 40 pages), or an even spread from first to last page when it does not, and Claude is told when it is reading a sample.
+  - **Step 3, grounded answers:** strict rules: cite `[Page X]` for every fact (`[Section X]` for Word files, which have no fixed pages), say "Not stated in the provided document" instead of guessing, and treat the document's text as data, never as instructions. Answers that hit the length limit are marked as cut short. Every answer prints live token and KES cost telemetry.
+  - **Reliable API handling:** the Claude client retries rate limits, overloads and dropped connections automatically; if one question still fails, it is recorded as "Not answered" and the remaining questions carry on. A bad API key or wrong model id stops the run with a clear message, and the answers already paid for are still exported.
+  - **Step 4, Word report (`--export-docx`):** writes `week6/contract_qa_report.docx` with a summary table, the full transcript, the estimated AI cost and a "not legal advice" note. If the previous report is still open in Word (Windows locks it), the new one is saved as `contract_qa_report_YYYYMMDD_HHMMSS.docx` instead of crashing and losing the answers.
+  - **Step 5, batch folder index (`--batch-index <folder>`):** indexes every PDF in a folder (`.pdf` and `.PDF`, on Windows and Linux) into `week6/document_index.csv` with `file`, `pages`, `chars`, `preview`. Damaged or locked PDFs get an `ERROR:` row instead of stopping the batch, scanned files are flagged "need OCR", and cells starting with `=`, `+`, `-` or `@` are neutralised so a malicious file name cannot run an Excel formula. If the CSV is open in Excel, a timestamped copy is written.
+  - **Modes:** `-q "..."` (repeatable), interactive `Ask Document >` loop (Ctrl+C keeps the answers so far), offline `--dry-run` (keyword extract or section outline, no API cost), and an **11-check** `--self-test` that runs in a temporary folder.
+
+### Document Q&A Notes (Day 26)
+
+**Who it is for:** agribusiness procurement officers, farm managers, SACCO and co-op boards, small law firms and county tender committees who receive 10 to 60-page supply contracts, tenders and lease agreements and need answers like "What is the late-delivery penalty?" or "When can we terminate?" in seconds, with the page to check.
+
+**What it costs to run:** about **KES 0.30 to 0.60 per question** on a 2 to 5-page contract, and about **KES 2 to 3** for a "Summarize this contract" on a 40-page contract (Claude Haiku 4.5 at $1 / $5 per million input / output tokens, KES 129.50 to the dollar). The exact cost of every answer is printed and written to the log.
+
+**Technical notes**
+
+- **Requirements:** `pypdf` and `python-docx` (both in `requirements.txt`). Some bank and government PDFs use AES encryption; if the tool asks for it, run `pip install cryptography`.
+- **No `temperature` setting:** the Gemini draft asked for `temperature=0.0`. The current Anthropic SDK and API version no longer accept it (the first Windows run logged `Messages.create() got an unexpected keyword argument 'temperature'`). Consistency comes from the strict "only from the excerpts, cite every fact" rules instead.
+- **Keep runtime outputs out of Git:** `week6/document_qa.log`, `week6/contract_qa_report*.docx`, `week6/document_index*.csv`, `week6/*.tmp` and Word/Excel `~$` lock files are in `.gitignore`. The script and the sample contract PDF are tracked. Real client contracts must never go into the public repository; keep them in a separate folder outside the repo and pass them with `--file`.
+- **Scanned contracts:** a photocopied contract has no text layer. The tool says so instead of answering from nothing. OCR it first (for example with Microsoft Lens or Adobe Scan on a phone, saved as a searchable PDF), then run it again.
+- **Not legal advice:** the answers summarise what the document says. For disputed or high-value terms, the client confirms against the signed original with their advocate. The Word report carries this note.
+
+**Day 26 Verification (`--self-test`, 17 Nov 2026, Python 3.13)**
+
+```text
+====================================================================
+   DAY 26 DOCUMENT Q&A - AUTOMATED SELF-TEST SUITE
+====================================================================
+[PASS] Check 1 (PDF Extraction): Extracted 2 pages cleanly via pypdf.
+[PASS] Check 2 (Chunking): Split 2 pages into 8 page-tagged chunks.
+[PASS] Check 3 (Chunk Retrieval & Q&A): Retrieved payment & penalty clauses.
+[PASS] Check 4 (Word .docx Report): Created & verified .docx Q&A report.
+[PASS] Check 5 (Batch PDF Indexer): 3 files indexed (incl. .PDF and a broken file) to UTF-8-SIG CSV.
+[PASS] Check 6 (Broad Questions): 'Summarize' covers both pages (whole doc, or even sample if too long).
+[PASS] Check 7 (Excel Safety): '=' '+' '-' '@' cells are prefixed with an apostrophe.
+[PASS] Check 8 (Chunk Boundaries): no-space text, oversized overlap and blank pages all terminate.
+[PASS] Check 9 (Windows File Lock): report open in Word -> saved as a timestamped copy.
+[PASS] Check 10 (Encrypted PDF): password-protected PDF gives a clear message.
+[PASS] Check 11 (API Errors): failed question recorded, next one answered, KES 0.2590 costed.
+====================================================================
+   ALL 11 DAY 26 CHECKS PASSED (11/11)
+====================================================================
+```
+
+What it shows: the five Day 26 brief checks (extraction, chunking, retrieval, Word report, batch index) plus the six edge cases found in review: broad "Summarize" questions read the whole contract, Excel formula injection is blocked, the chunker cannot loop forever, a report left open in Word is saved under a new name, a password-protected PDF gives a clear message, and one failed API call does not lose the other answers.
+
 ---
 
 ## Setup & Installation
@@ -292,7 +343,7 @@ What it shows: a dry run, then a manual live send on 14 Nov. The last two lines 
    git clone https://github.com/Kimnovix/kimnovix-ai-client-operations.git
    cd kimnovix-ai-client-operations
    ```
-2. Create a virtual environment and install dependencies (includes `requests` and `beautifulsoup4` for the scraper):
+2. Create a virtual environment and install dependencies (includes `requests` and `beautifulsoup4` for the scraper, and `pypdf` and `python-docx` for the Day 26 document tool):
    ```bash
    python -m venv venv
    # Windows (PowerShell): .\venv\Scripts\Activate.ps1
@@ -319,6 +370,8 @@ What it shows: a dry run, then a manual live send on 14 Nov. The last two lines 
    python week5/day24_scheduled_sales_runner.py --dry-run
    python week5/day25_pet_clinic_stock_alert.py --self-test
    python week5/day25_pet_clinic_stock_alert.py --dry-run
+   python week6/day26_document_qa.py --self-test
+   python week6/day26_document_qa.py --dry-run
    ```
 
 ---
@@ -567,6 +620,71 @@ Deficit to Min = units needed to reach the minimum. Recommended Order adds a 25%
 ```
 *(Lines 3 and 4: two manual re-runs with the same stock, blocked. Lines 5 and 6: an afternoon manual run after Propofol dropped below minimum, so the list changed and a fresh alert went out.)*
 
+### Running Week 6 Document Q&A
+```bash
+# Day 26: test, preview offline, then ask Claude
+python week6/day26_document_qa.py --self-test                     # 11 checks in a temp folder, no API cost
+python week6/day26_document_qa.py --dry-run                       # creates the sample contract PDF if missing
+python week6/day26_document_qa.py -q "What are the payment terms and the late delivery penalty?"
+python week6/day26_document_qa.py -q "Summarize this contract" -q "When can either party terminate?" --export-docx
+python week6/day26_document_qa.py --file "C:/Clients/Tenders/county_feed_tender.pdf"   # interactive: type 'exit' to finish
+python week6/day26_document_qa.py --file contract.docx -q "Who signs for the buyer?"     # Word files cite [Section X]
+python week6/day26_document_qa.py --batch-index week6             # every PDF in the folder -> week6/document_index.csv
+```
+
+**Day 26 Document Q&A Example Output (`--dry-run`, sample feed supply contract):**
+```text
+====================================================================
+DOCUMENT LOADED : sample_feed_supply_contract.pdf
+Pages Extracted : 2 | Total Characters: 2,686 | Chunks: 4
+====================================================================
+
+Q: Who are the contracting parties, what products are supplied, and what is the monthly KES value?
+--------------------------------------------------------------------
+Offline Dry-Run Extractive Match:
+- [Page 1] COMMERCIAL LIVESTOCK FEED SUPPLY AGREEMENT (REF: RVF-2026-089)
+- [Page 1] 1. CONTRACTING PARTIES
+- [Page 1] 2. PRODUCT SPECIFICATIONS & MONTHLY VOLUMES
+- [Page 1] at KES 3,450 per bag (Total: KES 621,000 / month).
+- [Page 1] month at KES 4,100 per bag (Total: KES 492,000 / month).
+- [Page 1] month at KES 3,150 per bag (Total: KES 315,000 / month).
+- [Page 1] Total Contract Monthly Value: KES 1,428,000 (Inclusive of transport).
+- [Page 2] 1.5% per month (simple interest) on the overdue KES balance.
+
+[Dry-run] Chunks used: 4/4 (whole document)
+--------------------------------------------------------------------
+
+Q: What are the payment terms, delivery schedule, biosecurity rules, and penalties?
+--------------------------------------------------------------------
+Offline Dry-Run Extractive Match:
+- [Page 2] 4. DELIVERY SCHEDULE & BIOSECURITY PROTOCOL
+- [Page 2] Deliveries shall occur every Tuesday by 09:00 AM EAT at the Buyer’s
+- [Page 2] designated perimeter feed store. Delivery trucks must undergo wheel-dip
+- [Page 2] 5. PAYMENT TERMS & BANKING DETAILS
+- [Page 2] Payment Terms: Net 30 days from the date of signed Goods Received Note (GRN).
+- [Page 2] Late Payment Penalty: Unpaid invoices past 30 days attract a late fee of
+- [Page 2] 6. LATE DELIVERY PENALTIES & EMERGENCY SUBSTITUTION
+- [Page 2] If the Supplier fails to deliver within 24 hours of the scheduled Tuesday
+
+[Dry-run] Chunks used: 4/4 (whole document)
+--------------------------------------------------------------------
+
+Q: Summarize this contract
+--------------------------------------------------------------------
+Offline Dry-Run Outline (section headings):
+- [Page 1] 1. CONTRACTING PARTIES
+- [Page 1] 2. PRODUCT SPECIFICATIONS & MONTHLY VOLUMES
+- [Page 1] 3. QUALITY ASSURANCE & AFLATOXIN LIMITS
+- [Page 2] 4. DELIVERY SCHEDULE & BIOSECURITY PROTOCOL
+- [Page 2] 5. PAYMENT TERMS & BANKING DETAILS
+- [Page 2] 6. LATE DELIVERY PENALTIES & EMERGENCY SUBSTITUTION
+- [Page 2] 7. TERMINATION & DISPUTE RESOLUTION
+
+[Dry-run] Chunks used: 4/4 (whole document)
+--------------------------------------------------------------------
+```
+*(Dry-run answers are a simple offline keyword extract so the pipeline can be checked for free. A live run sends the same chunks to Claude and returns a written answer with `[Page X]` citations plus a `[Telemetry]` line with tokens and KES cost.)*
+
 ---
 
 ## Commercial Pricing & Kenyan SME Market Valuation
@@ -582,3 +700,4 @@ Deficit to Min = units needed to reach the minimum. Recommended Order adds a 25%
 | **`day23_sales_email_report.py`** | Nairobi Retail Shops, Agro-Vets, Hardware Stores & Wholesale Depots | **KES 18,000** (one-off) | **KES 3,500 / month** | Build fee covers adapting the script to the client's POS or M-Pesa till export, branding the email, Gmail App Password setup, and scheduling the 6:00 PM run on the shop PC. Retainer covers monitoring the daily send log, fixing breakages when the POS export format changes, adding recipients, and tuning restock levels each season. Replaces the owner's nightly phone call or WhatsApp to the shop attendant and catches stock-outs before customers walk to the competitor; one saved stock-out of a fast mover like maize meal or milk covers the monthly retainer. Running cost is near zero (Gmail SMTP is free). |
 | **`day24_scheduled_sales_runner.py`** | Any Day 23 client: Retail Shops, Agro-Vets, Hardware Stores, Wholesale Depots | **KES 8,000** (add-on to Day 23) or **KES 24,000** bundled with Day 23 | **+KES 1,500 / month** on the Day 23 retainer | The difference between a script and a service. Covers installing the self-healing 6:00 PM task on the shop PC, a test send with the owner, and monthly `--status` checks so a silent failure is caught within a day, not a week. The catch-up and retry logic protects the report on days with KPLC outages or dropped data bundles, which is exactly when the owner most wants the numbers. |
 | **`day25_pet_clinic_stock_alert.py` (Week 5 Capstone)** | Nairobi Veterinary Clinics, Pet Hospitals, Agro-Vets & Pharmacies | **KES 12,000** (one-off setup) or **KES 18,000** (setup + 3 months' support) | **KES 2,000 / month** | 7:00 AM dispensary low-stock alert for vaccines, anaesthetics, antibiotics and surgical consumables. Setup covers loading the clinic's real item list and agreed minimums, Gmail App Password and recipients, the scheduled task with catch-up, and a live test with the Head Vet. Retainer covers checking the log weekly, adjusting minimums as caseload changes (for example rabies campaigns), adding new items and recipients, and fixing the sheet when someone breaks a column. Saves about 15 hours a month of manual stock-taking (roughly KES 7,500 of technician time) and prevents clinical stock-outs; running cost is near zero (Gmail SMTP is free). |
+| **`day26_document_qa.py` (Week 6, Day 26)** | Agribusiness Procurement Teams, Feed Millers & Large Farms, SACCOs & Co-ops, Small Law Firms, County Tender Committees | **KES 30,000 – 45,000** (one-off setup) | **KES 5,000 / month** | Contract and tender Q&A with page citations, a Word Q&A report for the board file, and a searchable index of the client's PDF folder. Setup covers installing on the client PC, loading and testing 5 to 10 of their real contracts (scanned ones OCR'd first), tuning the questions they ask most, and training one staff member; the upper end covers Word contracts, large archives or a custom report template. Retainer covers the Claude API cost (about KES 0.30 to 3 per question, so even 500 questions a month stay under KES 1,500), checking the log, adding new document types and fixing problem files. Replaces 1 to 2 hours of reading per contract and catches the clause that costs money: one missed KES 15,000-a-day late-delivery penalty or a 60-day termination notice pays for the year. |
