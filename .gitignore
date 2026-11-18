@@ -35,3 +35,8 @@ week6/document_index.csv
 week6/document_index_*.csv
 week6/*.tmp
 week6/~$*
+
+# Day 27 multi-step workflow (runtime outputs; the script stays tracked)
+week6/workflow.log
+week6/workflow_checkpoint.json
+week6/workflow_brief*.md

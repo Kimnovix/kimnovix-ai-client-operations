@@ -1,6 +1,6 @@
 # Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, and AI document Q&A for contracts built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
+API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, AI document Q&A for contracts, and multi-step AI research briefs built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
 
 ## Live Deployed Applications (Render Cloud)
 
@@ -29,6 +29,7 @@ Domains covered:
 - **Scheduling & Unattended Automation:** a 6:00 PM job runner for Windows Task Scheduler, cron, or a background loop that retries through power cuts and dropped internet, catches up after the shop PC was off, and never emails the owner twice.
 - **Market Intelligence & HR:** a polite, robots.txt-aware web scraper that produces Excel-safe competitive listing reports.
 - **Legal, Procurement & Contract Intelligence:** a PDF and Word document Q&A tool that answers questions about supply contracts with page citations, exports a Word Q&A report, and indexes whole folders of PDFs.
+- **Marketing, Strategy & Agribusiness Research:** a three-step AI pipeline (research, summarize, format) that turns one topic, such as M-Pesa trends among Nairobi SMEs or Rift Valley farm financing, into a two-paragraph client brief, and never pays twice for a step that already finished.
 - **Web Applications & Cloud Deployment:** Flask servers under Gunicorn on Render, CORS-enabled JSON endpoints, and asynchronous JavaScript (`fetch`) dashboards.
 
 ## Week 1: API Integrations & Automation
@@ -334,6 +335,53 @@ What it shows: a dry run, then a manual live send on 14 Nov. The last two lines 
 
 What it shows: the five core checks (extraction, chunking, retrieval, Word report, batch index) plus six edge-case checks: broad "Summarize" questions read the whole contract, Excel formula injection is blocked, the chunker cannot loop forever, a report left open in Word is saved under a new name, a password-protected PDF gives a clear message, and one failed API call does not lose the other answers.
 
+- **`week6/day27_multistep_workflow.py` (Day 27: Multi-Step AI Workflows, Kenyan Market & Strategy Brief Pipeline):** Give it one topic and it chains three Claude calls, each one feeding the next, to produce a two-paragraph executive brief. Runs on Claude Haiku 5.5 (`claude-haiku-5-5`) and switches once to Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) if an API key does not have Haiku 5.5 enabled.
+  - **Step 1, `research(topic)`:** background research for a Kenyan business audience: current landscape, operational mechanics (M-Pesa, county logistics, SACCOs and co-ops, KRA/KEBS), risks and commercial openings, under 450 words.
+  - **Step 2, `summarize(raw_text)`:** condenses the research into exactly 5 bullet points. Numbered or `*` bullets are normalised to `- `, and a summary with the wrong number of points is flagged in the log and the brief.
+  - **Step 3, `format_output(summary)`:** turns the 5 points into two paragraphs: market context and core problem, then commercial strategy and recommended action. Plain language, no hype.
+  - **Checkpoint and `--resume`:** after every paid step the output is saved to `week6/workflow_checkpoint.json`, one entry per topic. If Step 2 or Step 3 fails (dropped internet, rate limit, KPLC outage, Ctrl+C), the same command with `--resume` reuses the finished steps and only pays for what is left. Offline `--dry-run` runs never read or write the checkpoint, so sample text can never end up in a paid brief.
+  - **Step-level error log:** `week6/workflow.log` records every step with model, tokens and KES cost, and on failure records which step failed, why (rate limit, timeout, no connection, server overload, refusal, token cap) and the first 80 characters of the input it was given.
+  - **Model fallback and honest costing:** if Claude Haiku 5.5 is not available to the key ("model not found"), the run switches to Claude Haiku 4.5 for the remaining steps, says so on screen and in the log, and prices those steps at Haiku 4.5 rates (10 times higher), so the KES figure is never understated. A bad API key stops the run (and the rest of a suite) at once with a clear message.
+  - **Thinking-aware limits:** Claude Haiku 5.5 thinks before it answers, and that thinking counts toward the step's token cap. Each step has room for it (research 4,000 tokens at medium effort, summary and brief 1,500 at low effort). If a step still runs out before writing any answer, that is reported as a clear error instead of an empty brief.
+  - **Output (`week6/workflow_brief.md`):** a Markdown file with the brief, the 5 points and the raw research, plus date, status, model, tokens, KES cost, any steps reused from the checkpoint, and warnings. It is written whenever Step 1 succeeded, so a partial run still keeps the paid research. If the file is open or locked by sync software, a timestamped copy is saved instead.
+  - **Modes:** `--topic "..."`, `--run-step5-suite` (three Kenyan test topics, saved as `workflow_brief_test1.md` to `_test3.md`), `--resume`, `--dry-run` (offline, no cost), `--model`, `--no-fallback`, and an **8-check** `--self-test` that runs in a temporary folder with fake Claude clients.
+
+### Multi-Step Workflow Notes (Day 27)
+
+**Who it is for:** marketing agencies, agribusiness consultants, SACCO and co-op managers, agro-vet distributors and SME owners who need a quick, structured brief on a market question ("Which M-Pesa products should our Gikomba traders use?", "What financing can our Rift Valley dairy group get?") before a meeting, a pitch or a board decision.
+
+**Why three steps instead of one prompt:** each step has one job and a fixed output shape (raw research, then 5 points, then 2 paragraphs), so each can be checked, logged and re-run on its own. When one step fails, only that step is paid for again.
+
+**What it costs to run:** about **KES 0.10 to 0.50 per brief** on Claude Haiku 5.5 ($0.10 / $0.50 per million input / output tokens for prompts up to 100,000 tokens, KES 129.50 to the dollar); a whole three-topic suite costs well under KES 2. If the run falls back to Claude Haiku 4.5 ($1 / $5), expect roughly 10 times that. These are estimates; the exact tokens and KES cost of every run are printed and logged.
+
+**Technical notes**
+
+- **No `temperature`:** the current Anthropic SDK and API version reject it, so it is never sent. The fixed output shape of each step keeps briefs consistent.
+- **Research is model knowledge, not live web search:** Step 1 does not browse the internet, so figures, tariffs and regulations can be out of date. The research prompt tells Claude to say when it is unsure of a figure rather than invent one, and every brief ends with "Verify figures and regulations before acting on them."
+- **Requirements:** `anthropic>=2.0.0` (for `output_config` effort settings) and `python-dotenv`, both in `requirements.txt`.
+- **Keep runtime outputs out of Git:** `week6/workflow.log`, `week6/workflow_checkpoint.json` and `week6/workflow_brief*.md` are in `.gitignore`. Client topics and briefs are client work and stay on the client PC.
+
+**Day 27 Verification (`--self-test`, 18 Nov 2026, Python 3.13)**
+
+```text
+====================================================================
+   DAY 27 MULTI-STEP WORKFLOW - AUTOMATED SELF-TEST SUITE
+====================================================================
+[PASS] Check 1 (3-Step Chaining): research -> 5-bullet summary -> 2-paragraph brief.
+[PASS] Check 2 (Prompt Hand-Off): Step 1 feeds Step 2, Step 2 feeds Step 3; no temperature sent.
+[PASS] Check 3 (Step 2 Failure Isolation): logs step + reason + input, keeps paid Step 1.
+[PASS] Check 4 (Checkpoint Resume): resumed at Step 2; Step 1 not paid for again.
+[PASS] Check 5 (Step 5 Kenyan Topics): all 3 topics pass offline; dry runs leave no checkpoint.
+[PASS] Check 6 (Windows File Lock): locked brief saved under a timestamped name, no .tmp left.
+[PASS] Check 7 (Model Fallback): Haiku 5.5 missing -> Haiku 4.5 for the run, priced correctly.
+[PASS] Check 8 (Token Cap Guard): empty answer at max_tokens is reported, not saved as a brief.
+====================================================================
+   ALL 8 DAY 27 CHECKS PASSED (8/8)
+====================================================================
+```
+
+What it shows: the three steps chain correctly (each output is inside the next step's prompt), a dropped connection at Step 2 is logged with the step name, reason and input while the paid research is kept, `--resume` continues from Step 2 without paying for Step 1 again, offline runs never touch the checkpoint, a locked output file gets a timestamped copy, a key without Haiku 5.5 falls back to Haiku 4.5 at the correct price, and a step that runs out of tokens while thinking fails clearly instead of saving an empty brief.
+
 ---
 
 ## Setup & Installation
@@ -372,6 +420,8 @@ What it shows: the five core checks (extraction, chunking, retrieval, Word repor
    python week5/day25_pet_clinic_stock_alert.py --dry-run
    python week6/day26_document_qa.py --self-test
    python week6/day26_document_qa.py --dry-run
+   python week6/day27_multistep_workflow.py --self-test
+   python week6/day27_multistep_workflow.py --dry-run
    ```
 
 ---
@@ -685,6 +735,38 @@ Offline Dry-Run Outline (section headings):
 ```
 *(Dry-run answers are a simple offline keyword extract so the pipeline can be checked for free. A live run sends the same chunks to Claude and returns a written answer with `[Page X]` citations plus a `[Telemetry]` line with tokens and KES cost.)*
 
+### Running Week 6 Multi-Step Workflow
+```bash
+# Day 27: test, preview offline, then run live
+python week6/day27_multistep_workflow.py --self-test                       # 8 checks in a temp folder, no API cost
+python week6/day27_multistep_workflow.py --dry-run                         # all 3 steps offline -> week6/workflow_brief.md
+python week6/day27_multistep_workflow.py --topic "M-Pesa payment trends among Nairobi SMEs"
+python week6/day27_multistep_workflow.py --run-step5-suite                 # 3 Kenyan test topics -> workflow_brief_test1..3.md
+python week6/day27_multistep_workflow.py --topic "M-Pesa payment trends among Nairobi SMEs" --resume   # after a failed run
+python week6/day27_multistep_workflow.py --topic "Pig feed prices in Nakuru" --no-fallback            # fail instead of using Haiku 4.5
+```
+
+**Day 27 Example Output (`--dry-run`, default topic):**
+```text
+[1/3] Researching: M-Pesa payment trends among Nairobi SMEs
+[2/3] Summarizing...
+[3/3] Formatting output...
+
+--- STEP 2: 5-POINT SUMMARY ---
+- Safaricom M-Pesa Lipa Na M-Pesa (Buy Goods tills and Paybill) processes the majority of cashless counter transactions for Nairobi SMEs.
+- Merchant credit products (Fuliza Biashara, KCB M-Pesa, and M-Shwari) provide working-capital overdrafts scored directly against daily till turnover.
+- Key friction points for Gikomba, Eastleigh, and CBD traders include transaction tariff tiers, reversal fraud attempts, and separating personal lines from business Pochi la Biashara wallets.
+- Integration with POS systems and automated end-of-day reconciliation reduces cashier leakage and speeds up KRA eTIMS compliance.
+- SMEs adopting dedicated merchant tills report faster supplier settlement and cleaner bank-ready cashflow statements.
+
+--- STEP 3: FINAL TWO-PARAGRAPH BRIEF ---
+Safaricom M-Pesa Lipa Na M-Pesa (Buy Goods tills and Paybill) processes the majority of cashless counter transactions for Nairobi SMEs. Merchant credit products (...) Key friction points for Gikomba, Eastleigh, and CBD traders include (...)
+
+Integration with POS systems and automated end-of-day reconciliation reduces cashier leakage (...) Together, these factors define the immediate execution roadmap for M-Pesa payment trends among Nairobi SMEs.
+[SAVED] Full 3-stage brief written to: ...\week6\workflow_brief.md
+```
+*(Dry-run text is fixed sample content so the pipeline can be checked for free. A live run writes fresh research, summary and brief with Claude and adds a `[Telemetry]` line with model, tokens and KES cost.)*
+
 ---
 
 ## Commercial Pricing & Kenyan SME Market Valuation
@@ -701,3 +783,4 @@ Offline Dry-Run Outline (section headings):
 | **`day24_scheduled_sales_runner.py`** | Any Day 23 client: Retail Shops, Agro-Vets, Hardware Stores, Wholesale Depots | **KES 8,000** (add-on to Day 23) or **KES 24,000** bundled with Day 23 | **+KES 1,500 / month** on the Day 23 retainer | The difference between a script and a service. Covers installing the self-healing 6:00 PM task on the shop PC, a test send with the owner, and monthly `--status` checks so a silent failure is caught within a day, not a week. The catch-up and retry logic protects the report on days with KPLC outages or dropped data bundles, which is exactly when the owner most wants the numbers. |
 | **`day25_pet_clinic_stock_alert.py` (Week 5 Capstone)** | Nairobi Veterinary Clinics, Pet Hospitals, Agro-Vets & Pharmacies | **KES 12,000** (one-off setup) or **KES 18,000** (setup + 3 months' support) | **KES 2,000 / month** | 7:00 AM dispensary low-stock alert for vaccines, anaesthetics, antibiotics and surgical consumables. Setup covers loading the clinic's real item list and agreed minimums, Gmail App Password and recipients, the scheduled task with catch-up, and a live test with the Head Vet. Retainer covers checking the log weekly, adjusting minimums as caseload changes (for example rabies campaigns), adding new items and recipients, and fixing the sheet when someone breaks a column. Saves about 15 hours a month of manual stock-taking (roughly KES 7,500 of technician time) and prevents clinical stock-outs; running cost is near zero (Gmail SMTP is free). |
 | **`day26_document_qa.py` (Week 6, Day 26)** | Agribusiness Procurement Teams, Feed Millers & Large Farms, SACCOs & Co-ops, Small Law Firms, County Tender Committees | **KES 30,000 – 45,000** (one-off setup) | **KES 5,000 / month** | Contract and tender Q&A with page citations, a Word Q&A report for the board file, and a searchable index of the client's PDF folder. Setup covers installing on the client PC, loading and testing 5 to 10 of their real contracts (scanned ones OCR'd first), tuning the questions they ask most, and training one staff member; the upper end covers Word contracts, large archives or a custom report template. Retainer covers the Claude API cost (about KES 0.30 to 3 per question, so even 500 questions a month stay under KES 1,500), checking the log, adding new document types and fixing problem files. Replaces 1 to 2 hours of reading per contract and catches the clause that costs money: one missed KES 15,000-a-day late-delivery penalty or a 60-day termination notice pays for the year. |
+| **`day27_multistep_workflow.py` (Week 6, Day 27)** | Marketing Agencies, Agribusiness Consultants, SACCOs & Co-ops, Agro-Vet Distributors, SME Owners | **KES 20,000 – 30,000** (one-off setup) | **KES 3,000 / month** | Three-step research brief pipeline (research, 5-point summary, two-paragraph brief) with checkpoint and resume, so a dropped connection never means paying twice. Setup covers installing on the client PC, tuning the three prompts to the client's sector and voice (for example agro-vet, dairy co-op or retail), loading their standing topics, and training one staff member; the upper end covers a branded brief template and a batch of recurring topics. Retainer covers the Claude API cost (about KES 0.10 to 0.50 per brief, so even 300 briefs a month stay under KES 150), checking the log, updating prompts as the market changes, and adding new topics. Replaces 2 to 3 hours of desk research and write-up per brief; one well-prepared brief before a bank, buyer or board meeting covers the month. |
