@@ -40,3 +40,10 @@ week6/~$*
 week6/workflow.log
 week6/workflow_checkpoint.json
 week6/workflow_brief*.md
+
+# Day 28 complaint responder package (client API key and runtime files; config.env.example stays tracked)
+week6/day28_complaint_responder/config.env
+week6/day28_complaint_responder/config.env.txt
+week6/day28_complaint_responder/responder.log
+week6/day28_complaint_responder/responder.log.*
+week6/day28_complaint_responder/venv/

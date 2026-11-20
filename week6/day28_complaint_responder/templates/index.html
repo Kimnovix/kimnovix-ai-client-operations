@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ cfg.company_name }} - Complaint Responder</title>
+  <style>
+    :root { --brand: {{ cfg.brand_color }}; --brand-text: {{ cfg.brand_text_color }}; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #f3f4f6; color: #111827; margin: 0; padding: 24px 16px;
+    }
+    .container {
+      max-width: 760px; margin: 0 auto; background: #ffffff;
+      border-radius: 10px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); overflow: hidden;
+    }
+    .header { background: var(--brand); color: var(--brand-text); padding: 20px 24px; }
+    .header h1 { margin: 0; font-size: 20px; }
+    .header p { margin: 6px 0 0; font-size: 13px; opacity: 0.9; }
+    .body { padding: 24px; }
+    label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+    textarea {
+      width: 100%; min-height: 130px; padding: 12px; font-size: 14px;
+      border: 1px solid #d1d5db; border-radius: 6px; resize: vertical; font-family: inherit;
+    }
+    .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    button {
+      background: var(--brand); color: var(--brand-text); border: none; border-radius: 6px;
+      padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    button.secondary { background: #374151; color: #ffffff; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .alert {
+      margin-top: 16px; padding: 12px 14px; border-radius: 6px;
+      background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; display: none;
+    }
+    .result-box {
+      margin-top: 20px; padding: 16px; border-radius: 6px;
+      background: #f9fafb; border: 1px solid #e5e7eb; display: none;
+    }
+    .reply-text { white-space: pre-wrap; line-height: 1.55; font-size: 14px; margin: 0; }
+    .meta { margin-top: 12px; font-size: 12px; color: #6b7280; }
+    .notice {
+      margin-top: 12px; padding: 10px 12px; border-radius: 6px; font-size: 13px;
+      background: #fffbeb; border: 1px solid #fde68a; color: #92400e; display: none;
+    }
+    .counter { margin-top: 6px; font-size: 12px; color: #6b7280; text-align: right; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>{{ cfg.company_name }} - Customer Complaint Responder</h1>
+      <p>Support line: {{ cfg.support_phone }} | Follow-up SLA: {{ cfg.escalation_window }}</p>
+    </div>
+    <div class="body">
+      <label for="complaint">Paste the customer's WhatsApp, SMS, or email complaint:</label>
+      <textarea id="complaint" maxlength="{{ cfg.max_complaint_chars }}"
+        placeholder="Example: I paid for express delivery at 10 AM (Order #409). It is now 3 PM and nothing has arrived..."></textarea>
+      <div id="counter" class="counter">0 / {{ cfg.max_complaint_chars }} characters</div>
+
+      <div class="actions">
+        <button id="generateBtn" type="button">Generate Reply</button>
+        <button id="sampleBtn" type="button" class="secondary">Load Sample Complaint</button>
+        <button id="clearBtn" type="button" class="secondary">Clear</button>
+      </div>
+
+      <div id="errorBox" class="alert" role="alert"></div>
+
+      <div id="resultBox" class="result-box">
+        <label>Ready-to-Send Reply Draft:</label>
+        <p id="replyText" class="reply-text"></p>
+        <div id="noticeBox" class="notice"></div>
+        <div class="actions" style="margin-top: 12px;">
+          <button id="copyBtn" type="button" class="secondary">Copy Reply</button>
+        </div>
+        <div id="metaLine" class="meta"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const complaintEl = document.getElementById("complaint");
+    const generateBtn = document.getElementById("generateBtn");
+    const sampleBtn = document.getElementById("sampleBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const errorBox = document.getElementById("errorBox");
+    const resultBox = document.getElementById("resultBox");
+    const replyText = document.getElementById("replyText");
+    const metaLine = document.getElementById("metaLine");
+    const noticeBox = document.getElementById("noticeBox");
+    const counterEl = document.getElementById("counter");
+    const maxChars = Number(complaintEl.getAttribute("maxlength")) || 3000;
+
+    function updateCounter() {
+      counterEl.textContent = `${complaintEl.value.length} / ${maxChars} characters`;
+    }
+    complaintEl.addEventListener("input", updateCounter);
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.style.display = "block";
+    }
+
+    sampleBtn.addEventListener("click", () => {
+      complaintEl.value = "Hello, I paid for express delivery to Kilimani at 10 AM today (Order #409). It is now 3 PM, my client has not received the parcel, and the rider's phone is off. What kind of service is this?";
+      errorBox.style.display = "none";
+      updateCounter();
+    });
+
+    clearBtn.addEventListener("click", () => {
+      complaintEl.value = "";
+      errorBox.style.display = "none";
+      resultBox.style.display = "none";
+      updateCounter();
+      complaintEl.focus();
+    });
+
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(replyText.textContent);
+        copyBtn.textContent = "Copied";
+        setTimeout(() => { copyBtn.textContent = "Copy Reply"; }, 1800);
+      } catch (_err) {
+        showError("Could not copy automatically. Select the reply text and press Ctrl+C.");
+      }
+    });
+
+    generateBtn.addEventListener("click", async () => {
+      errorBox.style.display = "none";
+      resultBox.style.display = "none";
+      generateBtn.disabled = true;
+      generateBtn.textContent = "Drafting reply...";
+
+      try {
+        const res = await fetch("/api/reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ complaint: complaintEl.value })
+        });
+        let data;
+        try {
+          data = await res.json();
+        } catch (_parseErr) {
+          showError("The local app sent an unexpected response. Restart run.bat and try again.");
+          return;
+        }
+        if (!res.ok || !data.ok) {
+          showError(data.error || "Could not generate a reply. Please try again.");
+          return;
+        }
+        replyText.textContent = data.reply;
+        metaLine.textContent = `Model: ${data.model} | Tokens: ${data.input_tokens} in / ${data.output_tokens} out | Est. Cost: KES ${data.cost_kes}`;
+        const notes = [];
+        if (data.truncated) notes.push("This draft may be cut off at the end. Read it fully before sending, or click Generate Reply again.");
+        if (data.switched_from) notes.push(`The usual AI model (${data.switched_from}) was unavailable, so a backup model was used. Replies still work; costs per reply are higher until support updates the setup.`);
+        noticeBox.textContent = notes.join(" ");
+        noticeBox.style.display = notes.length ? "block" : "none";
+        resultBox.style.display = "block";
+      } catch (_err) {
+        showError("Cannot reach the local app. Check that the launcher window is still open.");
+      } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = "Generate Reply";
+      }
+    });
+  </script>
+</body>
+</html>

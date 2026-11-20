@@ -1,6 +1,6 @@
 # Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, AI document Q&A for contracts, and multi-step AI research briefs built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
+API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, AI document Q&A for contracts, multi-step AI research briefs, and a client-installable AI complaint responder package built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
 
 ## Live Deployed Applications (Render Cloud)
 
@@ -24,7 +24,7 @@ Domains covered:
 - **Agriculture & Logistics:** client trackers, real-time weather monitoring (OpenWeatherMap API), an autonomous tea harvest advisory agent, and a cloud-deployed poultry production tracker.
 - **Financial & Legal Operations:** dairy co-op payment calculators (`day10_project/`) and an automated file sorter for law firms.
 - **Veterinary & Clinical Inventory:** a 7:00 AM dispensary stock alert for a Nairobi pet clinic that flags vaccines, anaesthetics, antibiotics, and surgical consumables below minimum stock and says exactly how many to order.
-- **Customer Service, Healthcare & Productivity:** Matatu SACCO assistant, Kisumu Pharmacy stateful chatbot, real estate JSON extractor, AI meeting notes summarizer, and the AI complaint responder.
+- **Customer Service, Healthcare & Productivity:** Matatu SACCO assistant, Kisumu Pharmacy stateful chatbot, real estate JSON extractor, AI meeting notes summarizer, the AI complaint responder, and its productized desktop package that a client configures in Notepad and starts with a double-click.
 - **Retail & Inventory Reporting:** an automated evening sales email that summarises revenue, receipts, top sellers, and restock alerts for shop owners.
 - **Scheduling & Unattended Automation:** a 6:00 PM job runner for Windows Task Scheduler, cron, or a background loop that retries through power cuts and dropped internet, catches up after the shop PC was off, and never emails the owner twice.
 - **Market Intelligence & HR:** a polite, robots.txt-aware web scraper that produces Excel-safe competitive listing reports.
@@ -382,6 +382,58 @@ What it shows: the five core checks (extraction, chunking, retrieval, Word repor
 
 What it shows: the three steps chain correctly (each output is inside the next step's prompt), a dropped connection at Step 2 is logged with the step name, reason and input while the paid research is kept, `--resume` continues from Step 2 without paying for Step 1 again, offline runs never touch the checkpoint, a locked output file gets a timestamped copy, a key without Haiku 5.5 falls back to Haiku 4.5 at the correct price, and a step that runs out of tokens while thinking fails clearly instead of saving an empty brief.
 
+- **`week6/day28_complaint_responder/` (Day 28: Productizing an AI Application, Client-Ready Complaint Responder Package):** The Week 4 complaint responder rebuilt as a package a client installs and runs on their own office PC without touching code. The client edits one settings file (`config.env`) in Notepad and double-clicks `run.bat`; the tool opens in the browser branded with their company name, support line, follow-up window and colour. Runs on Claude Haiku 5.5 (`claude-haiku-5-5`, low effort) and switches to Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) if a key does not have Haiku 5.5 enabled.
+  - **Package contents:** `app.py` (Flask app and AI engine), `templates/index.html` (browser interface), `config.env.example` (settings template), `run.bat` (Windows launcher), `requirements.txt` (the three components the package needs), `CLIENT_SETUP_GUIDE.md` (setup and plain-English troubleshooting) and `SERVICE_DESCRIPTION.md` (one-page offer for the client).
+  - **All client values in `config.env`:** API key, company name, business type, support phone and email, follow-up window, refund and escalation policy, brand colour, port, message length limit and AI model. It is read with `dotenv_values` into a config object, so the global environment is never changed. Every bad value produces one plain-English line naming the setting and how to fix it, all listed together so the client fixes everything in one pass.
+  - **Notepad-proof settings file:** `config.env` loads whether Notepad saved it as UTF-8, UTF-8 with BOM, "Unicode" (UTF-16) or "ANSI" (Windows-1252). Blank optional settings fall back to sensible defaults instead of leaving gaps in the AI's instructions, and a file accidentally saved as `config.env.txt` is detected and explained.
+  - **One-click launcher (`run.bat`):** works from folders with spaces and from network shares, refuses to run from inside the ZIP file, prefers a local `venv`, and on a fresh client PC finds Python 3.10+ (`py -3` or `python`), builds a private `venv` and installs `requirements.txt` once. Settings are checked (`--check-config`) before the server starts, and the window stays open on any error so the client can read it.
+  - **Safe for the client's API credit:** the server only listens on `127.0.0.1` and rejects any request whose Host header is not `127.0.0.1` or `localhost`, so other devices on the office Wi-Fi and malicious web pages (DNS rebinding) cannot use it. `BRAND_COLOR` must be a strict hex code, so it cannot inject CSS into the page; company details are HTML-escaped; request bodies over 64 KB are refused; `AI_MODEL` only accepts models the tool knows how to price.
+  - **Thread-safe model fallback:** Flask serves each request on its own thread. The shared model route is guarded by a lock, each request reads the active model once, and only the request that receives "model not found" switches it, so two staff members generating replies at the same moment can never get a false "model not available" error or a reply priced at the wrong rate.
+  - **Plain-English errors, no tracebacks:** wrong or expired key, empty credit balance, no internet, timeouts, rate limits, refusals, a reply that ran out of tokens while thinking, a busy port (checked before the browser opens), missing components and Python older than 3.10 all show a short message that says what to do. The interface also warns when a draft may be cut off or a backup model was used.
+  - **Privacy-aware log (`responder.log`):** one line per event with model, message length, tokens and KES cost, never the customer's words; it rotates at about 1 MB.
+  - **Modes:** `--check-config`, `--no-browser`, `--config <path>`, and a **12-check** `--self-test` that runs in a temporary folder with fake Claude clients.
+
+### Complaint Responder Package Notes (Day 28)
+
+**Who it is for:** courier companies, e-commerce shops, Airbnbs, veterinary clinics, restaurants and hardware depots (1 to 20 staff) that want the complaint responder on their own office computer, under their own Anthropic account, with their own policy, rather than on a shared hosted demo.
+
+**What changed from the Week 4 web app:** nothing client-specific lives in the code any more. A new client is a new `config.env`, not a new build, so setup is an hour of configuration and testing instead of a day of editing Python.
+
+**What it costs to run:** about **KES 0.02 to 0.05 per reply** on Claude Haiku 5.5 ($0.10 / $0.50 per million input / output tokens for prompts up to 100,000 tokens, KES 129.50 to the dollar); a measured live reply used 386 input and 232 output tokens for KES 0.02. On the Haiku 4.5 fallback ($1 / $5) expect roughly 10 times that. The tokens and estimated KES cost of every reply are shown under the draft and written to the log.
+
+**Technical notes**
+
+- **No `temperature`:** the current Anthropic SDK and API version reject it, so it is never sent. Haiku 5.5 runs at `output_config={"effort": "low"}`; Haiku 4.5 does not accept an effort setting, so it is left out on the fallback. Haiku 5.5 thinks before it answers and that counts toward `max_tokens=1500`, which leaves ample room for a 140-word reply.
+- **Reply rules:** the complaint is wrapped in `<customer_complaint>` tags and treated as text to reply to, never as instructions. Replies are two short paragraphs, mention the order number, state the next step and follow-up window, never blame the customer or promise unapproved refunds, and use the customer's language (English, Swahili or Sheng mixed with English).
+- **Local development server:** the package uses Flask's built-in server bound to `127.0.0.1`, which is fine for one office PC with a few staff. A multi-branch deployment belongs on a hosted server under Gunicorn, as in Week 4.
+- **Requirements:** `flask`, `anthropic>=2.0.0` and `python-dotenv` (in the package's own `requirements.txt` and in the root one). Python 3.10 or newer; developed and tested on Python 3.13.
+- **Keep secrets and runtime files out of Git:** `week6/day28_complaint_responder/config.env` (it holds the API key), `responder.log` and its rotated copies are in `.gitignore`. `config.env.example` is tracked. A `.gitattributes` file in the package folder keeps `run.bat` on Windows (CRLF) line endings.
+
+**Day 28 Verification (`--self-test`, 20 Nov 2026, Python 3.13)**
+
+```text
+====================================================================
+   DAY 28 PRODUCTIZED COMPLAINT RESPONDER - SELF-TEST SUITE
+====================================================================
+[PASS] Check 1 (Config Loading): Loaded valid config.env cleanly; os.environ untouched.
+[PASS] Check 2 (Config Validation): Missing file (incl. config.env.txt hint) and bad settings yield plain-English errors.
+[PASS] Check 3 (Haiku 5.5 Reply & Cost): Filtered text block, sent effort=low, costed KES 0.0259.
+[PASS] Check 4 (Input Validation): Rejected blank, short, over-limit and non-JSON requests cleanly.
+[PASS] Check 5 (Model Fallback): 404 on 5.5 switched to 4.5 once, dropped effort, costed KES 0.2590.
+[PASS] Check 6 (Plain-English API Errors): Auth failure and empty credit returned client-friendly messages.
+[PASS] Check 7 (Stop-Reason Guards): Empty max_tokens and refusal returned clear errors.
+[PASS] Check 8 (Notepad Encodings): UTF-8 BOM, UTF-16 and ANSI config.env all load; blank fields use defaults.
+[PASS] Check 9 (Injection Guards): CSS/model injection rejected, #FFF normalized, HTML in names escaped.
+[PASS] Check 10 (Thread Safety): Two concurrent requests both fell back to 4.5 with no false error.
+[PASS] Check 11 (Local-Only Access): Foreign Host header blocked (403); oversize body rejected (413).
+[PASS] Check 12 (Startup Checks): Busy port reported in plain English; free port accepted.
+====================================================================
+   ALL 12 DAY 28 CHECKS PASSED (12/12)
+====================================================================
+```
+
+What it shows: settings load and validate in plain English, a Haiku 5.5 reply is extracted from the text block and priced correctly, bad input is rejected before any API cost, the Haiku 4.5 fallback happens once and is priced at its own rate, API failures become client-friendly messages, and the six edge cases a real office PC produces are covered: Notepad file encodings, CSS and HTML injection through settings, two staff generating replies at the same moment, requests from outside the computer, oversized pastes, and a second `run.bat` window fighting for the same port.
+
 ---
 
 ## Setup & Installation
@@ -422,7 +474,10 @@ What it shows: the three steps chain correctly (each output is inside the next s
    python week6/day26_document_qa.py --dry-run
    python week6/day27_multistep_workflow.py --self-test
    python week6/day27_multistep_workflow.py --dry-run
+   python week6/day28_complaint_responder/app.py --self-test
+   python week6/day28_complaint_responder/app.py --check-config
    ```
+   Day 28 reads its own `week6/day28_complaint_responder/config.env` (copy it from `config.env.example`), not the root `.env`.
 
 ---
 
@@ -767,6 +822,41 @@ Integration with POS systems and automated end-of-day reconciliation reduces cas
 ```
 *(Dry-run text is fixed sample content so the pipeline can be checked for free. A live run writes fresh research, summary and brief with Claude and adds a `[Telemetry]` line with model, tokens and KES cost.)*
 
+### Running Week 6 Complaint Responder Package
+```bash
+# Day 28: test, check settings, then start (clients just double-click run.bat)
+copy week6\day28_complaint_responder\config.env.example week6\day28_complaint_responder\config.env   # Windows; then edit it in Notepad
+python week6/day28_complaint_responder/app.py --self-test        # 12 checks in a temp folder, no API cost
+python week6/day28_complaint_responder/app.py --check-config     # validate config.env only
+python week6/day28_complaint_responder/app.py                    # start and open http://127.0.0.1:5000
+python week6/day28_complaint_responder/app.py --no-browser       # start without opening a browser tab
+```
+
+**Day 28 Example Output (`--check-config`, then start):**
+```text
+[OK] Configuration valid for 'SwiftLink Parcels Nairobi'.
+     Business Type : same-day courier and parcel delivery service
+     Support Phone : 0700 123 456
+     AI Model      : claude-haiku-5-5
+     Local Address : http://127.0.0.1:5000
+================================================================
+  SwiftLink Parcels Nairobi - AI Customer Complaint Responder
+  Open in browser: http://127.0.0.1:5000
+  Keep this window open while using the tool. Press Ctrl+C to stop.
+================================================================
+```
+
+**Day 28 Example Error (`config.env` left half-filled):**
+```text
+[CONFIGURATION ERROR]
+Please fix the following setting(s) in config.env:
+  - ANTHROPIC_API_KEY is missing or still set to the example placeholder. Open config.env and paste your real Anthropic API key.
+  - BRAND_COLOR ('blue') is not a valid hex color. Use a code like #0f766e in config.env.
+
+Fix the issue shown above, save config.env, and double-click run.bat again.
+```
+*(In the browser, staff paste a complaint, click **Generate Reply**, and get a two-paragraph draft with a **Copy Reply** button and a line showing the model, tokens and estimated KES cost.)*
+
 ---
 
 ## Commercial Pricing & Kenyan SME Market Valuation
@@ -784,3 +874,4 @@ Integration with POS systems and automated end-of-day reconciliation reduces cas
 | **`day25_pet_clinic_stock_alert.py` (Week 5 Capstone)** | Nairobi Veterinary Clinics, Pet Hospitals, Agro-Vets & Pharmacies | **KES 12,000** (one-off setup) or **KES 18,000** (setup + 3 months' support) | **KES 2,000 / month** | 7:00 AM dispensary low-stock alert for vaccines, anaesthetics, antibiotics and surgical consumables. Setup covers loading the clinic's real item list and agreed minimums, Gmail App Password and recipients, the scheduled task with catch-up, and a live test with the Head Vet. Retainer covers checking the log weekly, adjusting minimums as caseload changes (for example rabies campaigns), adding new items and recipients, and fixing the sheet when someone breaks a column. Saves about 15 hours a month of manual stock-taking (roughly KES 7,500 of technician time) and prevents clinical stock-outs; running cost is near zero (Gmail SMTP is free). |
 | **`day26_document_qa.py` (Week 6, Day 26)** | Agribusiness Procurement Teams, Feed Millers & Large Farms, SACCOs & Co-ops, Small Law Firms, County Tender Committees | **KES 30,000 – 45,000** (one-off setup) | **KES 5,000 / month** | Contract and tender Q&A with page citations, a Word Q&A report for the board file, and a searchable index of the client's PDF folder. Setup covers installing on the client PC, loading and testing 5 to 10 of their real contracts (scanned ones OCR'd first), tuning the questions they ask most, and training one staff member; the upper end covers Word contracts, large archives or a custom report template. Retainer covers the Claude API cost (about KES 0.30 to 3 per question, so even 500 questions a month stay under KES 1,500), checking the log, adding new document types and fixing problem files. Replaces 1 to 2 hours of reading per contract and catches the clause that costs money: one missed KES 15,000-a-day late-delivery penalty or a 60-day termination notice pays for the year. |
 | **`day27_multistep_workflow.py` (Week 6, Day 27)** | Marketing Agencies, Agribusiness Consultants, SACCOs & Co-ops, Agro-Vet Distributors, SME Owners | **KES 20,000 – 30,000** (one-off setup) | **KES 3,000 / month** | Three-step research brief pipeline (research, 5-point summary, two-paragraph brief) with checkpoint and resume, so a dropped connection never means paying twice. Setup covers installing on the client PC, tuning the three prompts to the client's sector and voice (for example agro-vet, dairy co-op or retail), loading their standing topics, and training one staff member; the upper end covers a branded brief template and a batch of recurring topics. Retainer covers the Claude API cost (about KES 0.10 to 0.50 per brief, so even 300 briefs a month stay under KES 150), checking the log, updating prompts as the market changes, and adding new topics. Replaces 2 to 3 hours of desk research and write-up per brief; one well-prepared brief before a bank, buyer or board meeting covers the month. |
+| **`day28_complaint_responder/` (Week 6, Day 28)** | Courier Companies, E-Commerce Shops, Airbnbs, Veterinary Clinics, Restaurants & Hardware Depots (1 to 20 staff) | **KES 35,000** (one-off setup) | **KES 4,500 / month** | The Week 4 responder as an installable package on the client's own PC and Anthropic account. Setup covers installing Python and the package, writing `config.env` with the client's real refund and escalation policy, testing 10 of their real past complaints with the owner, and training front-desk staff. Retainer covers model updates when models are released or retired, policy and tone tuning, monthly log checks, and up to 2,500 drafts a month (about KES 0.02 to 0.05 each on Haiku 5.5, so even 2,500 drafts cost under KES 125). Saves 10 to 15 minutes per difficult complaint (about 12 supervisor hours a month at 15 a week) and prevents the defensive reply or unapproved refund that loses a regular customer. |
