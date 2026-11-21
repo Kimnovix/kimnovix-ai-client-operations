@@ -434,6 +434,56 @@ What it shows: the three steps chain correctly (each output is inside the next s
 
 What it shows: settings load and validate in plain English, a Haiku 5.5 reply is extracted from the text block and priced correctly, bad input is rejected before any API cost, the Haiku 4.5 fallback happens once and is priced at its own rate, API failures become client-friendly messages, and the six edge cases a real office PC produces are covered: Notepad file encodings, CSS and HTML injection through settings, two staff generating replies at the same moment, requests from outside the computer, oversized pastes, and a second `run.bat` window fighting for the same port.
 
+- **`week6/day29_testing_and_reliability.py` (Day 29: Testing and Reliability, Reliability Harness for AI Inquiry Replies):** A hardened engine for drafting replies to customer inquiries (sample client: Nova Agro & Grain Supply, Eldoret) plus the test suite that proves it holds up under bad input and a bad network. Runs on Claude Haiku 5.5 (`claude-haiku-5-5`, low effort) and switches once to Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) if a key does not have Haiku 5.5 enabled.
+  - **Input checks before any API cost:** empty, whitespace-only, too short (under 5 characters), symbols-only, oversized (over 4,000 characters), missing (`None`), wrong type, undecodable bytes and broken Unicode (lone surrogates from a badly saved file) are all rejected with a one-line reason. Control characters, BOMs and zero-width characters are stripped. A 10 MB paste is rejected on its length before it is scanned.
+  - **Exponential backoff:** rate limits (429), server errors and overloads (500, 503, 529), timeouts and dropped connections are retried after 1 s, 2 s and 4 s (four attempts in total). On a 429 the server's `Retry-After` hint is used when it is longer, capped at 30 s. The SDK's own retry layer is turned off so the two never stack up.
+  - **No pointless retries:** a bad API key, missing permission, malformed request (400) or other non-transient status stops at once with a clear message. A refusal is reported as "pass it to a staff member", not retried.
+  - **Never a blank reply:** only `text` blocks are used (Haiku 5.5's thinking blocks are skipped). If the token limit is reached before any text is written, or the model returns no text, the result is a clear error instead of an empty draft, and the tokens already spent are still costed. A reply that was cut short is flagged.
+  - **Shared, thread-safe model route:** one route object for the whole process, guarded by a lock. After the first "model not found" every later message, on any thread, goes straight to Haiku 4.5 instead of paying for another 404 first. The fallback is a routing hop, not a retry, so it does not use up a backoff attempt.
+  - **Privacy-safe log (`week6/reliability.log`):** one line per event with an 8-character SHA-256 hash of the message, its length, model, attempts, tokens and KES cost, plus the error class, HTTP status and request id on failures. Customer words and API error bodies are never written. The log rotates at about 1 MB.
+  - **Edge-case suite (`--run-edge-suite`):** 13 fixed cases (normal order, Swahili, Sheng mixed with English, special characters, control characters, empty, whitespace, short, symbols-only, `None`, broken Unicode, 5,000 characters, exactly 4,000 characters), each with the outcome it must produce. Results go to `week6/reliability_report.json` with a pass/fail per case and the total KES cost; the command exits with code 1 if any case misbehaves, so it can gate a release.
+  - **Safe report writes:** the JSON report is written to a unique temp file and swapped into place with `os.replace`. If the file is locked on Windows (open in Notepad or an editor, or held by antivirus), a timestamped copy is saved instead.
+  - **Modes:** `--text "..."`, `--dry-run` (offline, no API cost), `--run-edge-suite`, and a **10-check** `--self-test` that runs in a temporary folder with fake Claude clients and makes no real API calls.
+
+### Testing & Reliability Notes (Day 29)
+
+**Who it is for:** any SME already running an AI tool for customers (inquiry replies, complaint drafts, document Q&A) that cannot afford a blank reply, a stuck screen during a Safaricom or KPLC outage, or a customer's phone number sitting in a log file.
+
+**Why it matters:** an AI tool that works in a demo fails in an office in three predictable ways: people paste odd input, the network drops, and the model sometimes returns nothing useful. Each of those is handled here and covered by a check that runs in seconds without spending credit.
+
+**What it costs to run:** about **KES 0.02 to 0.05 per reply** on Claude Haiku 5.5 ($0.10 / $0.50 per million input / output tokens for prompts up to 100,000 tokens, $0.50 / $2.50 above that, KES 129.50 to the dollar). The Haiku 4.5 fallback ($1 / $5) costs roughly 10 times more. Rejected input costs nothing because it never reaches the API. A live run of the edge suite sends 6 messages and costs well under KES 1.
+
+**Technical notes**
+
+- **No `temperature`, `top_p` or `top_k`:** the current Anthropic SDK and API version reject them, so they are never sent. Haiku 5.5 runs at `output_config={"effort": "low"}`; Haiku 4.5 does not accept an effort setting, so it is left out on the fallback.
+- **Error order:** `NotFoundError` (fallback), then `BadRequestError`, `AuthenticationError` / `PermissionDeniedError` (stop), then the retryable group (`RateLimitError`, `InternalServerError`, `APITimeoutError`, `APIConnectionError`), then any other `APIStatusError` (stop). The most specific errors are caught first.
+- **Prompt safety:** the customer's message is wrapped in `<customer_message>` tags and the system prompt treats it as text to reply to, never as instructions.
+- **Requirements:** `anthropic>=2.0.0` and `python-dotenv` (already in the root `requirements.txt`). Python 3.10 or newer; developed and tested on Python 3.13.
+- **Keep runtime files out of Git:** `week6/reliability.log`, its rotated copies, `week6/reliability_report*.json` and leftover `week6/*.tmp` files are in `.gitignore`.
+
+**Day 29 Verification (`--self-test`, 21 Nov 2026, Python 3.13)**
+
+```text
+====================================================================
+   DAY 29 TESTING AND RELIABILITY - SELF-TEST SUITE
+====================================================================
+[PASS] Check 1 (Normal / Empty / Long Inputs): handled with clear status and messages.
+[PASS] Check 2 (Exponential Backoff): waited 1s and 2s, succeeded on attempt 3, KES 0.0259.
+[PASS] Check 3 (Retry Exhaustion + Privacy): 1s/2s/4s then clean failure; no client text in log.
+[PASS] Check 4 (Truncation Guard): empty max_tokens reply is a clear error, KES 0.1036 still logged.
+[PASS] Check 5 (Model Fallback): one 404, then 9 replies on Haiku 4.5 without effort; KES 0.2590 each.
+[PASS] Check 6 (Edge-Case Suite): all 13 cases gave the expected result.
+[PASS] Check 7 (Atomic File Lock Fallback): saved timestamped copy, no .tmp leftovers.
+[PASS] Check 8 (Malformed Input): None, broken Unicode and bad bytes rejected; controls stripped.
+[PASS] Check 9 (No Pointless Retries): refusal and 400 each called once with clear messages.
+[PASS] Check 10 (Retry-After): 429 waits use the server hint (7s), capped at 30s; others use 1/2/4s.
+====================================================================
+   ALL 10 DAY 29 CHECKS PASSED (10/10)
+====================================================================
+```
+
+What it shows: bad input is stopped before it costs anything, transient failures are retried on the 1/2/4 second schedule and then fail with a message staff can act on, the customer's words never reach the log, an empty or cut-off reply is never shown as a draft, the model fallback happens once even with 8 messages in flight at the same time, and a locked report file does not lose the results.
+
 ---
 
 ## Setup & Installation
@@ -857,6 +907,42 @@ Fix the issue shown above, save config.env, and double-click run.bat again.
 ```
 *(In the browser, staff paste a complaint, click **Generate Reply**, and get a two-paragraph draft with a **Copy Reply** button and a line showing the model, tokens and estimated KES cost.)*
 
+### Running Week 6 Testing & Reliability Harness
+```bash
+# Day 29: test, run the edge suite offline, then try one live message
+python week6/day29_testing_and_reliability.py --self-test                    # 10 checks in a temp folder, no API cost
+python week6/day29_testing_and_reliability.py --run-edge-suite --dry-run     # 13 edge cases offline, writes reliability_report.json
+python week6/day29_testing_and_reliability.py --dry-run                      # default sample message, offline
+python week6/day29_testing_and_reliability.py --text "Habari, bei ya pumba ya nguruwe leo?"   # one live reply
+python week6/day29_testing_and_reliability.py --run-edge-suite               # same 13 cases against the live API
+```
+
+**Day 29 Example Output (`--run-edge-suite --dry-run`):**
+```text
+[EDGE SUITE] 13/13 cases behaved as expected -> saved to '...\week6\reliability_report.json'
+  [PASS] normal_order (62 chars): OK
+  [PASS] empty_string (0 chars): REJECTED (Empty input: please provide a non-empty customer message.)
+  [PASS] whitespace_only (7 chars): REJECTED (Empty input: please provide a non-empty customer message.)
+  [PASS] short_text (2 chars): REJECTED (Input too short (2 chars); minimum is 5 characters.)
+  [PASS] special_chars (33 chars): OK
+  [PASS] swahili_input (61 chars): OK
+  [PASS] sheng_mixed (62 chars): OK
+  [PASS] symbols_only (14 chars): REJECTED (Input has no letters or digits; nothing for the assistant to answer.)
+  [PASS] control_chars (36 chars): OK
+  [PASS] none_input (0 chars): REJECTED (No input received: the message field was empty (None).)
+  [PASS] broken_unicode (21 chars): REJECTED (Input contains broken Unicode characters; re-save the source file as UTF-8.)
+  [PASS] very_long_5000 (5000 chars): REJECTED (Input too long (5000 chars); maximum allowed is 4000 characters.)
+  [PASS] at_limit_4000 (4000 chars): OK
+```
+
+**Day 29 Example Log Lines (`week6/reliability.log`):**
+```text
+2026-11-21 16:05:05 | INFO | ok_dry_run hash=8a37ceab chars=62
+2026-11-21 16:05:05 | WARNING | validation_rejected reason=Input too short (2 chars); minimum is 5 characters. raw_chars=2
+2026-11-21 16:05:07 | WARNING | retry_backoff RateLimitError status=429 attempt=1/4 sleep=1.0s model=claude-haiku-5-5
+```
+*(The log holds a hash and the length of each message, never the words. A live reply also prints a `[Telemetry]` line with model, attempts, tokens and KES cost.)*
+
 ---
 
 ## Commercial Pricing & Kenyan SME Market Valuation
@@ -875,3 +961,4 @@ Fix the issue shown above, save config.env, and double-click run.bat again.
 | **`day26_document_qa.py` (Week 6, Day 26)** | Agribusiness Procurement Teams, Feed Millers & Large Farms, SACCOs & Co-ops, Small Law Firms, County Tender Committees | **KES 30,000 – 45,000** (one-off setup) | **KES 5,000 / month** | Contract and tender Q&A with page citations, a Word Q&A report for the board file, and a searchable index of the client's PDF folder. Setup covers installing on the client PC, loading and testing 5 to 10 of their real contracts (scanned ones OCR'd first), tuning the questions they ask most, and training one staff member; the upper end covers Word contracts, large archives or a custom report template. Retainer covers the Claude API cost (about KES 0.30 to 3 per question, so even 500 questions a month stay under KES 1,500), checking the log, adding new document types and fixing problem files. Replaces 1 to 2 hours of reading per contract and catches the clause that costs money: one missed KES 15,000-a-day late-delivery penalty or a 60-day termination notice pays for the year. |
 | **`day27_multistep_workflow.py` (Week 6, Day 27)** | Marketing Agencies, Agribusiness Consultants, SACCOs & Co-ops, Agro-Vet Distributors, SME Owners | **KES 20,000 – 30,000** (one-off setup) | **KES 3,000 / month** | Three-step research brief pipeline (research, 5-point summary, two-paragraph brief) with checkpoint and resume, so a dropped connection never means paying twice. Setup covers installing on the client PC, tuning the three prompts to the client's sector and voice (for example agro-vet, dairy co-op or retail), loading their standing topics, and training one staff member; the upper end covers a branded brief template and a batch of recurring topics. Retainer covers the Claude API cost (about KES 0.10 to 0.50 per brief, so even 300 briefs a month stay under KES 150), checking the log, updating prompts as the market changes, and adding new topics. Replaces 2 to 3 hours of desk research and write-up per brief; one well-prepared brief before a bank, buyer or board meeting covers the month. |
 | **`day28_complaint_responder/` (Week 6, Day 28)** | Courier Companies, E-Commerce Shops, Airbnbs, Veterinary Clinics, Restaurants & Hardware Depots (1 to 20 staff) | **KES 35,000** (one-off setup) | **KES 4,500 / month** | The Week 4 responder as an installable package on the client's own PC and Anthropic account. Setup covers installing Python and the package, writing `config.env` with the client's real refund and escalation policy, testing 10 of their real past complaints with the owner, and training front-desk staff. Retainer covers model updates when models are released or retired, policy and tone tuning, monthly log checks, and up to 2,500 drafts a month (about KES 0.02 to 0.05 each on Haiku 5.5, so even 2,500 drafts cost under KES 125). Saves 10 to 15 minutes per difficult complaint (about 12 supervisor hours a month at 15 a week) and prevents the defensive reply or unapproved refund that loses a regular customer. |
+| **`day29_testing_and_reliability.py` (Week 6, Day 29)** | Any SME running an AI tool for customers: Agro-Dealers & Grain Stores, Courier Companies, Clinics, SACCOs, E-Commerce Shops (including existing Day 20, 26, 27 and 28 clients) | **KES 18,000 – 25,000** (one-off setup) | **KES 3,000 / month** | Reliability hardening and an automated QA suite for an AI tool the client already uses. Setup covers adding input checks, 1/2/4-second backoff, model fallback, blank-reply guards and a privacy-safe log to their tool, and building an edge-case suite from 10 to 20 of their own real messages (Swahili, Sheng, M-Pesa codes, pasted spreadsheets); the upper end covers a multi-user web tool. Retainer covers re-running the suite after every model or prompt change and monthly, reviewing the log for retries, rejections and cost, and adding new cases when something odd turns up. Prevents the failures customers notice: a blank reply sent to a buyer, a frozen screen during a Safaricom or KPLC outage, or a customer's phone number left in a log file. One lost bulk order of maize or feed covers the year. |
