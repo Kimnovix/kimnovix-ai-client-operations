@@ -98,7 +98,8 @@ class TempWorkspace(unittest.TestCase):
             self.addCleanup(p.stop)
         for key in ("ANTHROPIC_API_KEY", "RENDER", "RENDER_EXTERNAL_HOSTNAME", "PORT",
                     "DOCS_DIR", "AI_MODEL", "ALLOWED_HOSTS", "HOST",
-                    "RATE_LIMIT_PER_10_MIN", "DAILY_CHAT_CAP", "BRAND_COLOR"):
+                    "RATE_LIMIT_PER_10_MIN", "DAILY_CHAT_CAP", "BRAND_COLOR",
+                    "SHOW_CITATIONS", "SHOW_TELEMETRY"):
             os.environ.pop(key, None)
         self.addCleanup(self.tmp.cleanup)
         self.cfg = pl.AssistantConfig(api_key="sk-ant-test", docs_dir=REAL_DOCS)
@@ -127,11 +128,11 @@ class TempWorkspace(unittest.TestCase):
 class Test01Config(TempWorkspace):
     def test_placeholder_key_and_bad_values_are_reported_together(self):
         env = self.write_env("ANTHROPIC_API_KEY=sk-ant-paste-your-real-key-here\n"
-                             "BRAND_COLOR=blue\nPORT=abc\nDAILY_CHAT_CAP=-1\n")
+                             "BRAND_COLOR=blue\nPORT=abc\nDAILY_CHAT_CAP=-1\nSHOW_TELEMETRY=maybe\n")
         with self.assertRaises(pl.ConfigError) as ctx:
             pl.load_config(env_path=env)
         msg = str(ctx.exception)
-        for fragment in ("ANTHROPIC_API_KEY", "BRAND_COLOR", "PORT", "DAILY_CHAT_CAP"):
+        for fragment in ("ANTHROPIC_API_KEY", "BRAND_COLOR", "PORT", "DAILY_CHAT_CAP", "SHOW_TELEMETRY"):
             self.assertIn(fragment, msg)
 
     def test_render_env_vars_override_file_and_extend_allowed_hosts(self):
@@ -309,12 +310,17 @@ class Test07PromptInjection(TempWorkspace):
         self.assertNotIn("admin mode", str(call["messages"]))
         self.assertIn("[product_catalog.md]", call["system"])
         self.assertIn("strictly as data", call["system"])
+        # Production mode: no file names in replies.
+        quiet = pl.build_system_prompt(pl.AssistantConfig(api_key="k", show_citations=False))
+        self.assertNotIn("[product_catalog.md]", quiet)
+        self.assertIn("Do not mention document or file names", quiet)
 
 
 class Test08FlaskApp(TempWorkspace):
-    def make_app(self, **limits):
+    def make_app(self, show_telemetry=True, **limits):
         cfg = pl.AssistantConfig(api_key="sk-ant-test", docs_dir=REAL_DOCS,
-                                 allowed_hosts=("127.0.0.1", "localhost", "nova.onrender.com"))
+                                 allowed_hosts=("127.0.0.1", "localhost", "nova.onrender.com"),
+                                 show_telemetry=show_telemetry)
         limiter = web.ChatLimiter(per_ip=limits.get("per_ip", 0), daily_cap=limits.get("daily_cap", 0))
         return web.create_app(cfg, dry_run=True, limiter=limiter).test_client()
 
@@ -338,6 +344,15 @@ class Test08FlaskApp(TempWorkspace):
         self.assertEqual(res.status_code, 200, body)
         self.assertEqual(body["model"], pl.DRY_RUN_MODEL_LABEL)
         self.assertIn("policies_and_delivery.md", body["sources"])
+
+        # Production mode: customers never see model, cost or file names.
+        quiet = self.make_app(show_telemetry=False)
+        body = quiet.post("/api/chat", json={"question": "Delivery fee to Kapseret?"},
+                          headers={"Host": "localhost"}).get_json()
+        self.assertTrue(body["ok"])
+        self.assertFalse({"model", "cost_kes", "sources"} & set(body))
+        page = quiet.get("/", headers={"Host": "localhost"}).get_data(as_text=True)
+        self.assertNotIn("product_catalog.md", page)
 
     def test_rate_limit_and_daily_cap(self):
         client = self.make_app(per_ip=2)

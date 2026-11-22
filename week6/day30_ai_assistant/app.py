@@ -199,23 +199,22 @@ def create_app(
         if not res.ok:
             return jsonify({"ok": False, "error": res.error}), res.status_code
 
-        return (
-            jsonify(
+        body = {"ok": True, "reply": res.reply, "truncated": res.truncated}
+        if cfg.show_telemetry:
+            # Demo footer data. Off in production so customers never see costs or
+            # model names; the owner still has all of it in logs/app.log.
+            body.update(
                 {
-                    "ok": True,
-                    "reply": res.reply,
                     "sources": res.sources,
                     "model": res.model,
                     "switched_from": res.switched_from,
                     "input_tokens": res.input_tokens,
                     "output_tokens": res.output_tokens,
                     "cost_kes": str(res.cost_kes),
-                    "truncated": res.truncated,
                     "latency_ms": res.latency_ms,
                 }
-            ),
-            200,
-        )
+            )
+        return jsonify(body), 200
 
     @app.errorhandler(404)
     def handle_404(_err):
@@ -287,6 +286,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"[OK] {cfg.company_name} ({cfg.business_location})")
         print(f"     Docs loaded : {len(doc_names)} ({', '.join(doc_names)}) | {len(chunks)} chunks")
         print(f"     Model       : {cfg.ai_model}")
+        print(f"     Citations   : {'on' if cfg.show_citations else 'off'} | "
+              f"Cost/model footer: {'on' if cfg.show_telemetry else 'off'}")
         print(f"     Address     : http://{cfg.host}:{cfg.port}")
         return 0
 

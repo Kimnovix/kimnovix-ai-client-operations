@@ -69,7 +69,7 @@
     </div>
 
     <div class="docs-bar">
-      <span>Knowledge Base ({{ doc_names|length }} docs): {{ doc_names|join(", ") }}</span>
+      {% if cfg.show_telemetry %}<span>Knowledge Base ({{ doc_names|length }} docs): {{ doc_names|join(", ") }}</span>{% else %}<span>Answers come from our official price list and store policies.</span>{% endif %}
       <span id="statusText">Ready</span>
     </div>
 
@@ -158,15 +158,18 @@
           return;
         }
 
-        const sources = (data.sources || []).join(", ") || "none";
-        const meta = `Sources: ${sources} | Model: ${data.model} | ${data.latency_ms}ms | Est. Cost: KES ${data.cost_kes}`;
+        let meta = "";
+        if (data.model) {  // the server only sends these when SHOW_TELEMETRY is on
+          const sources = (data.sources || []).join(", ") || "none";
+          meta = `Sources: ${sources} | Model: ${data.model} | ${data.latency_ms}ms | Est. Cost: KES ${data.cost_kes}`;
+        }
         appendMessage("bot", data.reply, meta);
         history.push({ role: "user", content: q });
         history.push({ role: "assistant", content: data.reply });
 
         const notes = [];
         if (data.switched_from) notes.push(`Backup model active (${data.model} instead of ${data.switched_from}).`);
-        if (data.truncated) notes.push("Reply hit the token ceiling; ask a narrower follow-up if needed.");
+        if (data.truncated) notes.push("This answer was cut short; ask a narrower follow-up if needed.");
         if (notes.length) {
           warnBox.textContent = notes.join(" ");
           warnBox.style.display = "block";

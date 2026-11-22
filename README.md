@@ -12,7 +12,12 @@ API-powered Python command-line tools, AI automated workflows, full-stack web ap
 - **Live Demo:** https://kimnovix-egg-tracker.onrender.com
 - **Live REST API Endpoint (`GET` / `POST`):** `https://kimnovix-egg-tracker.onrender.com/api/eggs`
 
-*(Note: Both live applications are hosted on Render's free tier; initial page load after inactivity may take 30–50 seconds for the container to wake up.)*
+### 3. Nova Agro-Vet 24/7 Business AI Assistant (Week 6 Capstone, Day 30)
+- **Live Demo:** https://nova-agrovet-assistant.onrender.com
+- **Health Endpoint:** `https://nova-agrovet-assistant.onrender.com/api/health`
+- **Portfolio Overview:** A customer support chat assistant for an Eldoret agro-vet and feed store that answers price, bulk discount, M-Pesa, delivery and returns questions in English, Swahili or Sheng, using only the shop's own catalog, policies and FAQ, and cites the document behind each fact. Built with Python, Flask, the Anthropic Claude API (`claude-haiku-5-5`, with automatic fallback to `claude-haiku-4-5-20251001`), and asynchronous JavaScript (`fetch`). Deployed on Render under Gunicorn. Nova Agro-Vet & Feeds Ltd is a sample business; its phone, Paybill and Till numbers are placeholders.
+
+*(Note: All three live applications are hosted on Render's free tier; initial page load after inactivity may take 30–50 seconds for the container to wake up.)*
 
 ---
 
@@ -510,6 +515,7 @@ What it shows: bad input is stopped before it costs anything, transient failures
 - **No `temperature`, `top_p` or `top_k`:** the current Anthropic SDK and API version reject them, so they are never sent. Haiku 5.5 runs at `output_config={"effort": "low"}`; Haiku 4.5 does not accept an effort setting, so it is left out on the fallback. Haiku 5.5 thinks before it answers and that counts toward `max_tokens=1500`; only `text` blocks are shown.
 - **Settings:** `load_config()` reads `.env` (UTF-8, UTF-8 with BOM, UTF-16 from Notepad, or Windows-1252) and then lets real environment variables override it, so the same code runs locally from `.env` and on Render from the dashboard's Environment settings. It never modifies `os.environ`. A relative `DOCS_DIR` is resolved from the app folder, not from wherever the command was started. All setting problems are reported together in one message.
 - **Render start command:** `gunicorn --chdir week6/day30_ai_assistant --workers 2 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT "app:create_wsgi_app()"`. The `--timeout 180` is required: one question can take about 127 seconds in the worst case (four 30-second attempts plus 7 seconds of backoff), and Gunicorn's default of 30 seconds would kill the worker mid-answer. Rate-limit counts are kept in memory per worker, so two workers allow up to twice the configured numbers.
+- **Display toggles:** `SHOW_CITATIONS` switches rule 2 of the system prompt between "cite the file name in square brackets" and "do not mention file names". `SHOW_TELEMETRY` controls whether `/api/chat` returns `sources`, `model`, `cost_kes`, tokens and latency at all, so hiding the footer is enforced on the server, not only in the page. Both accept `true`/`false`, `yes`/`no`, `on`/`off` or `1`/`0`; anything else is a configuration error.
 - **Local server:** Flask's built-in server on `127.0.0.1`, with a check that the port is free before starting (set `PORT=5050` in `.env` if another program holds 5000).
 - **Requirements:** `flask`, `gunicorn` (Linux only, for Render), `anthropic>=2.0.0`, `python-dotenv`, `pypdf` and `python-docx`, in the package's own `requirements.txt`. Python 3.10 or newer; developed and tested on Python 3.13.
 - **Keep secrets and runtime files out of Git:** `week6/day30_ai_assistant/.env` (it holds the API key), `.env.txt`, `logs/*.log*` and `venv/` are in `.gitignore`. `.env.example` is tracked. A `.gitattributes` file in the package folder keeps `run.bat` on Windows (CRLF) line endings.
@@ -537,6 +543,10 @@ Ran 14 tests in 0.109s
 
 OK
 ```
+
+**Live Deployment Check (Render, 22 Nov 2026):** https://nova-agrovet-assistant.onrender.com answered on `claude-haiku-5-5` with no fallback needed. A live Swahili query ("Habari, mnauza Virkon S pesa ngapi?") returned the correct KES 4,200 price and 1:100 dilution with `[product_catalog.md]` and `[faq.md]` citations in **1,617 ms** for **KES 0.0323**. The English bulk-price question was answered from the catalog and FAQ (KES 3,450 per bag, KES 3,300 from 20 bags, mixed feed types count toward the 20).
+
+**Demo vs production display:** inline `[file.md]` citations and the sources / model / response time / KES cost line under each answer are on for demo transparency. For a client's production customer chat, set `SHOW_CITATIONS=false` and `SHOW_TELEMETRY=false` (in `.env` or Render's Environment settings): answers then read like the shop's own staff wrote them, the API stops sending model and cost fields to the browser, and the owner still sees tokens and KES cost in `logs/app.log` (or Render's Logs tab).
 
 What it shows: settings errors are reported together and Render's environment overrides `.env`, every supported file type loads and a broken PDF does not stop the others, bad input is rejected before it costs anything, retries follow the 1/2/4-second schedule and `Retry-After`, the model fallback happens once with 8 questions in flight at the same time and never sends `effort` to Haiku 4.5, a refusal or blank reply is never shown as an answer, fake closing tags cannot escape the question, a request from an unknown host is refused, and the spend guard stops the fourth question when the limit is three.
 
@@ -1012,6 +1022,7 @@ python week6/day30_ai_assistant/pipeline.py -q "Habari, mnauza Virkon S pesa nga
 python week6/day30_ai_assistant/app.py --check-config                   # validate .env and docs only
 python week6/day30_ai_assistant/app.py                                  # start and open http://127.0.0.1:5000
 python week6/day30_ai_assistant/app.py --dry-run                        # chat UI offline, no API cost
+# Production customer chat: SHOW_CITATIONS=false and SHOW_TELEMETRY=false in .env (or Render Environment)
 
 # Production on Render (start command)
 gunicorn --chdir week6/day30_ai_assistant --workers 2 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT "app:create_wsgi_app()"

@@ -34,6 +34,8 @@ python app.py --no-browser                           # start without opening a b
 
 ## Deploy on Render
 
+Live demo: https://nova-agrovet-assistant.onrender.com (free tier, so the first visit after 15 idle minutes takes 30 to 50 seconds).
+
 - **Build command:** `pip install -r week6/day30_ai_assistant/requirements.txt`
 - **Start command:** `gunicorn --chdir week6/day30_ai_assistant --workers 2 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT "app:create_wsgi_app()"`
 - **Environment:** `ANTHROPIC_API_KEY` plus any business settings from `.env.example`. Render sets `PORT`, `RENDER` and `RENDER_EXTERNAL_HOSTNAME` itself. Add a custom domain to `ALLOWED_HOSTS`.
@@ -46,4 +48,5 @@ python app.py --no-browser                           # start without opening a b
 - Answers only from the documents in `docs/`, cites the file name, and sends sick-animal or dosage questions to the duty vet line.
 - Customer text and documents are wrapped in tags and treated as data. Look-alike tags typed by a visitor are neutralised, and the system prompt tells the model that a price or policy from earlier chat turns is not a fact unless it is in the documents.
 - `RATE_LIMIT_PER_10_MIN` (default 20 per visitor IP) and `DAILY_CHAT_CAP` (default 1,000 per worker) stop a public page from running up the API bill. Counts are in memory and reset on restart.
+- `SHOW_CITATIONS` and `SHOW_TELEMETRY` (both `true` by default) put `[file.md]` citations in answers and a sources / model / response time / KES cost line under each one. They are on for demo transparency. For a client's production customer chat, set both to `false`: answers read like the shop's own staff wrote them, and the cost and model details stay in `logs/app.log` for the owner.
 - `logs/app.log` records an 8-character hash and the length of each question, never the words.
