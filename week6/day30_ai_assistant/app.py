@@ -138,6 +138,10 @@ def create_app(
 
     @app.before_request
     def verify_host_header():
+        # Render's health checker connects to the container directly, so its Host
+        # header is not the public hostname. /api/health returns no customer data.
+        if request.path == "/api/health":
+            return None
         hostname = (request.host or "").rsplit(":", 1)[0].strip("[]").lower()
         if hostname not in cfg.allowed_hosts:
             return jsonify({"ok": False, "error": "Host not allowed."}), 403
@@ -314,4 +318,4 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main())

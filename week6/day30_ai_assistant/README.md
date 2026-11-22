@@ -37,6 +37,7 @@ python app.py --no-browser                           # start without opening a b
 - **Build command:** `pip install -r week6/day30_ai_assistant/requirements.txt`
 - **Start command:** `gunicorn --chdir week6/day30_ai_assistant --workers 2 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT "app:create_wsgi_app()"`
 - **Environment:** `ANTHROPIC_API_KEY` plus any business settings from `.env.example`. Render sets `PORT`, `RENDER` and `RENDER_EXTERNAL_HOSTNAME` itself. Add a custom domain to `ALLOWED_HOSTS`.
+- **Health check path:** `/api/health` (exempt from the Host check, because Render's checker does not use the public hostname).
 
 `--timeout 180` matters: one question can take up to about 127 seconds in the worst case (four 30-second attempts plus 1/2/4-second backoff), and Gunicorn's default 30-second timeout would kill the worker mid-answer. On Render the log is also printed to stdout, because the disk is wiped on every deploy.
 

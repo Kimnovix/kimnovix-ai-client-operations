@@ -320,7 +320,9 @@ class Test08FlaskApp(TempWorkspace):
 
     def test_host_guard_size_limit_and_dry_run_chat(self):
         client = self.make_app()
-        self.assertEqual(client.get("/api/health", headers={"Host": "evil.example.com"}).status_code, 403)
+        self.assertEqual(client.get("/api/docs", headers={"Host": "evil.example.com"}).status_code, 403)
+        # Render's internal health checker uses the container address as Host.
+        self.assertEqual(client.get("/api/health", headers={"Host": "10.0.0.7:10000"}).status_code, 200)
         ok = client.get("/", headers={"Host": "nova.onrender.com"})
         self.assertEqual(ok.status_code, 200)
         self.assertEqual(ok.headers.get("X-Content-Type-Options"), "nosniff")
