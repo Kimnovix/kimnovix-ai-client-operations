@@ -1,0 +1,10 @@
+.env
+.env.txt
+config.env
+logs/*.log
+logs/*.log.*
+*.tmp
+venv/
+.venv/
+__pycache__/
+.pytest_cache/

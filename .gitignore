@@ -52,3 +52,11 @@ week6/day28_complaint_responder/venv/
 week6/reliability.log
 week6/reliability.log.*
 week6/reliability_report*.json
+
+# Day 30 business AI assistant (API key, runtime log and local venv; .env.example and docs/ stay tracked)
+week6/day30_ai_assistant/.env
+week6/day30_ai_assistant/.env.txt
+week6/day30_ai_assistant/logs/*.log
+week6/day30_ai_assistant/logs/*.log.*
+week6/day30_ai_assistant/venv/
+week6/day30_ai_assistant/.venv/

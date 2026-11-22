@@ -1,6 +1,6 @@
 # Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, AI document Q&A for contracts, multi-step AI research briefs, and a client-installable AI complaint responder package built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
+API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, AI document Q&A for contracts, multi-step AI research briefs, a client-installable AI complaint responder package, and a 24/7 knowledge-base support assistant for agro-vets built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
 
 ## Live Deployed Applications (Render Cloud)
 
@@ -30,6 +30,7 @@ Domains covered:
 - **Market Intelligence & HR:** a polite, robots.txt-aware web scraper that produces Excel-safe competitive listing reports.
 - **Legal, Procurement & Contract Intelligence:** a PDF and Word document Q&A tool that answers questions about supply contracts with page citations, exports a Word Q&A report, and indexes whole folders of PDFs.
 - **Marketing, Strategy & Agribusiness Research:** a three-step AI pipeline (research, summarize, format) that turns one topic, such as M-Pesa trends among Nairobi SMEs or Rift Valley farm financing, into a two-paragraph client brief, and never pays twice for a step that already finished.
+- **Agro-Vet Customer Support:** a 24/7 chat assistant for an Eldoret agro-vet and feed store that answers price, bulk discount, M-Pesa, delivery and returns questions in English, Swahili or Sheng from the shop's own documents, cites the file every fact came from, and sends sick-animal questions to the duty vet.
 - **Web Applications & Cloud Deployment:** Flask servers under Gunicorn on Render, CORS-enabled JSON endpoints, and asynchronous JavaScript (`fetch`) dashboards.
 
 ## Week 1: API Integrations & Automation
@@ -484,6 +485,61 @@ What it shows: settings load and validate in plain English, a Haiku 5.5 reply is
 
 What it shows: bad input is stopped before it costs anything, transient failures are retried on the 1/2/4 second schedule and then fail with a message staff can act on, the customer's words never reach the log, an empty or cut-off reply is never shown as a draft, the model fallback happens once even with 8 messages in flight at the same time, and a locked report file does not lose the results.
 
+- **`week6/day30_ai_assistant/` (Day 30: Week 6 Capstone, 24/7 Business Knowledge-Base AI Assistant):** A web chat assistant for a Kenyan agro-vet and feed store (sample client: Nova Agro-Vet & Feeds Ltd, Eldoret) that answers customer questions only from the shop's own product catalog, delivery and payment policies and FAQ, with the source file named after each fact. Runs on Claude Haiku 5.5 (`claude-haiku-5-5`, low effort) and switches once to Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) if a key does not have Haiku 5.5 enabled. Runs on a shop PC with a double-click or on Render under Gunicorn.
+  - **Stage 1, knowledge base (`pipeline.py`):** loads every `.md`, `.txt`, `.pdf` and `.docx` file in `docs/` (any letter case, so `.PDF` and `.DOCX` on a USB stick from Windows work too), including Word tables, Notepad files saved in Windows-1252, and PDFs with an empty password. A damaged or locked file is logged and skipped; the rest still load. Text is split into overlapping chunks that end on a paragraph, line or sentence and never start mid-word.
+  - **Retrieval:** scores each chunk on whole-word, partial-word and file-name matches with the customer's question and sends Claude the best four. Broad questions ("what do you sell", "price list") get an even spread across all documents instead.
+  - **Stage 2, grounded answers:** strict rules: use only the documents, cite the file name in square brackets, say "I do not have that detail, call or WhatsApp us" instead of guessing, never diagnose animals or give medicine doses beyond what the documents say, and reply in the customer's language (English, Swahili or Sheng mixed with English).
+  - **Prompt-injection safety:** the question and documents are wrapped in `<customer_question>` and `<knowledge_base>` tags and treated as data. A visitor who types a fake closing tag (`</customer_question>` followed by "new rules") has it replaced with `[tag removed]`, so the text cannot break out. Chat history from the browser is cleaned (only alternating user and assistant turns, no `system` role, each turn capped at 1,000 characters), and the model is told that a price mentioned earlier in the chat is not a fact unless it is in the documents.
+  - **Reliability engine (from Day 29):** input checks before any API cost, 1/2/4-second backoff on rate limits, overloads, timeouts and dropped connections with the server's `Retry-After` honoured up to 30 s, no retry on a bad key or refusal, a thread-safe one-time model fallback shared by every request, and a clear error instead of a blank reply. Tokens already spent on a failed answer are still costed.
+  - **Web app (`app.py`, `templates/index.html`):** chat page with four quick-question buttons (feed and bulk price, delivery fees, M-Pesa and returns, a Swahili Virkon S question), the sources, model, response time and estimated KES cost under each answer, and notices when the backup model answered or a reply was cut short. A second click or Enter press while an answer is on its way does not send a second paid request.
+  - **Public-deployment guards:** a Host-header check (only `localhost`, `127.0.0.1`, `RENDER_EXTERNAL_HOSTNAME` and `ALLOWED_HOSTS`), a 64 KB request limit, `nosniff` / `DENY` framing / `no-referrer` headers, and a spend guard: `RATE_LIMIT_PER_10_MIN` questions per visitor IP (default 20) and `DAILY_CHAT_CAP` paid questions per day per worker (default 1,000) so a bot cannot run up the owner's API bill.
+  - **Privacy-safe log (`logs/app.log`):** one line per event with an 8-character hash and the length of the question, model, attempts, tokens and KES cost. Customer words are never written. Rotates at about 1 MB. On Render the same lines also go to stdout, because Render's disk is wiped on every deploy.
+  - **One-click client install (`run.bat`):** on the first run it copies `.env.example` to `.env` and opens it in Notepad, then finds Python 3.10 or newer, builds a private `venv\` and installs the requirements, checks the settings and opens the chat page. It warns when run from inside a ZIP and names a `.env.txt` left by Notepad.
+  - **Modes:** `app.py` (server), `app.py --check-config`, `app.py --dry-run` (UI offline), `pipeline.py -q "..."` (one answer in the terminal), `pipeline.py --dry-run`, and `pipeline.py --self-test`, which runs **14** isolated tests in temporary folders with fake Claude clients and makes no real API calls.
+
+### Business AI Assistant Notes (Day 30)
+
+**Who it is for:** agro-vets, feed distributors, veterinary clinics, hardware depots and wholesale suppliers (1 to 30 staff) whose phone and WhatsApp are busy all day with the same questions: what does a bag cost, how many bags for the bulk price, what is the Paybill, do you deliver to Turbo on Thursday.
+
+**Why it matters:** a shop attendant answering those questions is not serving the customer at the counter, and a wrong price quoted on WhatsApp has to be honoured or argued about. The assistant answers at 10 PM and on Sunday, quotes only the prices in the shop's own catalog, and says which document it used, so the owner can check any answer in seconds. Updating a price means editing one file in `docs/` and restarting; no code changes.
+
+**What it costs to run:** about **KES 0.03 to 0.08 per answer** on Claude Haiku 5.5 ($0.10 / $0.50 per million input / output tokens for prompts up to 100,000 tokens, $0.50 / $2.50 above that, KES 129.50 to the dollar); a typical question sends about 1,500 input tokens (rules plus four document chunks) and gets 200 to 400 back. The Haiku 4.5 fallback ($1 / $5) costs roughly 10 times more. With the default daily cap of 1,000 questions, the worst-case API bill on Haiku 5.5 is under KES 100 a day.
+
+**Technical notes**
+
+- **No `temperature`, `top_p` or `top_k`:** the current Anthropic SDK and API version reject them, so they are never sent. Haiku 5.5 runs at `output_config={"effort": "low"}`; Haiku 4.5 does not accept an effort setting, so it is left out on the fallback. Haiku 5.5 thinks before it answers and that counts toward `max_tokens=1500`; only `text` blocks are shown.
+- **Settings:** `load_config()` reads `.env` (UTF-8, UTF-8 with BOM, UTF-16 from Notepad, or Windows-1252) and then lets real environment variables override it, so the same code runs locally from `.env` and on Render from the dashboard's Environment settings. It never modifies `os.environ`. A relative `DOCS_DIR` is resolved from the app folder, not from wherever the command was started. All setting problems are reported together in one message.
+- **Render start command:** `gunicorn --chdir week6/day30_ai_assistant --workers 2 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT "app:create_wsgi_app()"`. The `--timeout 180` is required: one question can take about 127 seconds in the worst case (four 30-second attempts plus 7 seconds of backoff), and Gunicorn's default of 30 seconds would kill the worker mid-answer. Rate-limit counts are kept in memory per worker, so two workers allow up to twice the configured numbers.
+- **Local server:** Flask's built-in server on `127.0.0.1`, with a check that the port is free before starting (set `PORT=5050` in `.env` if another program holds 5000).
+- **Requirements:** `flask`, `gunicorn` (Linux only, for Render), `anthropic>=2.0.0`, `python-dotenv`, `pypdf` and `python-docx`, in the package's own `requirements.txt`. Python 3.10 or newer; developed and tested on Python 3.13.
+- **Keep secrets and runtime files out of Git:** `week6/day30_ai_assistant/.env` (it holds the API key), `.env.txt`, `logs/*.log*` and `venv/` are in `.gitignore`. `.env.example` is tracked. A `.gitattributes` file in the package folder keeps `run.bat` on Windows (CRLF) line endings.
+
+**Day 30 Verification (`pipeline.py --self-test`, 22 Nov 2026, Python 3.13, test names shortened)**
+
+```text
+test_notepad_dot_txt_gets_a_rename_hint ... ok
+test_placeholder_key_and_bad_values_are_reported_together ... ok
+test_render_env_vars_override_file_and_extend_allowed_hosts ... ok
+test_docx_tables_read_and_broken_pdf_is_skipped_not_fatal ... ok
+test_real_docs_load_and_chunks_never_start_mid_word ... ok
+test_retrieval_picks_the_right_document ... ok
+test_bad_inputs_rejected_before_any_api_call ... ok
+test_backoff_1_2_4_then_clean_failure_with_private_log ... ok
+test_retry_after_is_honoured_and_capped ... ok
+test_one_404_then_all_threads_use_haiku_45_without_effort ... ok
+test_refusal_empty_and_truncated_replies ... ok
+test_wrapper_tags_neutralised_and_history_sanitised ... ok
+test_host_guard_size_limit_and_dry_run_chat ... ok
+test_rate_limit_and_daily_cap ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.109s
+
+OK
+```
+
+What it shows: settings errors are reported together and Render's environment overrides `.env`, every supported file type loads and a broken PDF does not stop the others, bad input is rejected before it costs anything, retries follow the 1/2/4-second schedule and `Retry-After`, the model fallback happens once with 8 questions in flight at the same time and never sends `effort` to Haiku 4.5, a refusal or blank reply is never shown as an answer, fake closing tags cannot escape the question, a request from an unknown host is refused, and the spend guard stops the fourth question when the limit is three.
+
 ---
 
 ## Setup & Installation
@@ -526,8 +582,11 @@ What it shows: bad input is stopped before it costs anything, transient failures
    python week6/day27_multistep_workflow.py --dry-run
    python week6/day28_complaint_responder/app.py --self-test
    python week6/day28_complaint_responder/app.py --check-config
+   python week6/day29_testing_and_reliability.py --self-test
+   python week6/day30_ai_assistant/pipeline.py --self-test
+   python week6/day30_ai_assistant/app.py --check-config
    ```
-   Day 28 reads its own `week6/day28_complaint_responder/config.env` (copy it from `config.env.example`), not the root `.env`.
+   Day 28 reads its own `week6/day28_complaint_responder/config.env` (copy it from `config.env.example`), not the root `.env`. Day 30 reads its own `week6/day30_ai_assistant/.env` (copy it from `.env.example`, or let `run.bat` do it).
 
 ---
 
@@ -943,6 +1002,40 @@ python week6/day29_testing_and_reliability.py --run-edge-suite               # s
 ```
 *(The log holds a hash and the length of each message, never the words. A live reply also prints a `[Telemetry]` line with model, attempts, tokens and KES cost.)*
 
+### Running Week 6 Business AI Assistant (Day 30 Capstone)
+```bash
+# Day 30: test, preview offline, check settings, then start
+copy week6\day30_ai_assistant\.env.example week6\day30_ai_assistant\.env   # Windows; then paste the API key in Notepad
+python week6/day30_ai_assistant/pipeline.py --self-test                 # 14 isolated tests, no API cost
+python week6/day30_ai_assistant/pipeline.py --dry-run -q "What are your delivery fees for Kapseret?"   # offline retrieval preview
+python week6/day30_ai_assistant/pipeline.py -q "Habari, mnauza Virkon S pesa ngapi?"                   # one live answer
+python week6/day30_ai_assistant/app.py --check-config                   # validate .env and docs only
+python week6/day30_ai_assistant/app.py                                  # start and open http://127.0.0.1:5000
+python week6/day30_ai_assistant/app.py --dry-run                        # chat UI offline, no API cost
+
+# Production on Render (start command)
+gunicorn --chdir week6/day30_ai_assistant --workers 2 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT "app:create_wsgi_app()"
+```
+Clients on Windows just double-click `week6\day30_ai_assistant\run.bat`.
+
+**Day 30 Example Output (`--dry-run`):**
+```text
+[DOCS LOADED] faq.md, policies_and_delivery.md, product_catalog.md
+Offline preview matched 2 knowledge-base section(s):
+- [policies_and_delivery.md | Section 1] # Store Hours, Payments, Delivery & Return Policy
+- [policies_and_delivery.md | Section 1] Flat fee: KES 1,200 (free for 40+ bags).
+
+[Telemetry] Model: offline-dry-run | Sources: policies_and_delivery.md | Tokens: 0/0 | Cost: KES 0.0000 | 0ms
+```
+
+**Day 30 Example Log Lines (`logs/app.log`):**
+```text
+2026-11-22 11:53:15 | INFO | ok_dry_run hash=3b8c3dc1 chars=62 sources=2 ms=1
+2026-11-22 11:53:40 | INFO | server_start company=Nova Agro-Vet & Feeds Ltd docs=3 port=5000
+2026-11-22 11:54:26 | INFO | ok_dry_run hash=e0ceadc0 chars=33 sources=3 ms=1
+```
+*(The log holds a hash and the length of each question, never the words. In the browser, each answer shows its sources, model, response time and estimated KES cost underneath.)*
+
 ---
 
 ## Commercial Pricing & Kenyan SME Market Valuation
@@ -962,3 +1055,4 @@ python week6/day29_testing_and_reliability.py --run-edge-suite               # s
 | **`day27_multistep_workflow.py` (Week 6, Day 27)** | Marketing Agencies, Agribusiness Consultants, SACCOs & Co-ops, Agro-Vet Distributors, SME Owners | **KES 20,000 – 30,000** (one-off setup) | **KES 3,000 / month** | Three-step research brief pipeline (research, 5-point summary, two-paragraph brief) with checkpoint and resume, so a dropped connection never means paying twice. Setup covers installing on the client PC, tuning the three prompts to the client's sector and voice (for example agro-vet, dairy co-op or retail), loading their standing topics, and training one staff member; the upper end covers a branded brief template and a batch of recurring topics. Retainer covers the Claude API cost (about KES 0.10 to 0.50 per brief, so even 300 briefs a month stay under KES 150), checking the log, updating prompts as the market changes, and adding new topics. Replaces 2 to 3 hours of desk research and write-up per brief; one well-prepared brief before a bank, buyer or board meeting covers the month. |
 | **`day28_complaint_responder/` (Week 6, Day 28)** | Courier Companies, E-Commerce Shops, Airbnbs, Veterinary Clinics, Restaurants & Hardware Depots (1 to 20 staff) | **KES 35,000** (one-off setup) | **KES 4,500 / month** | The Week 4 responder as an installable package on the client's own PC and Anthropic account. Setup covers installing Python and the package, writing `config.env` with the client's real refund and escalation policy, testing 10 of their real past complaints with the owner, and training front-desk staff. Retainer covers model updates when models are released or retired, policy and tone tuning, monthly log checks, and up to 2,500 drafts a month (about KES 0.02 to 0.05 each on Haiku 5.5, so even 2,500 drafts cost under KES 125). Saves 10 to 15 minutes per difficult complaint (about 12 supervisor hours a month at 15 a week) and prevents the defensive reply or unapproved refund that loses a regular customer. |
 | **`day29_testing_and_reliability.py` (Week 6, Day 29)** | Any SME running an AI tool for customers: Agro-Dealers & Grain Stores, Courier Companies, Clinics, SACCOs, E-Commerce Shops (including existing Day 20, 26, 27 and 28 clients) | **KES 18,000 – 25,000** (one-off setup) | **KES 3,000 / month** | Reliability hardening and an automated QA suite for an AI tool the client already uses. Setup covers adding input checks, 1/2/4-second backoff, model fallback, blank-reply guards and a privacy-safe log to their tool, and building an edge-case suite from 10 to 20 of their own real messages (Swahili, Sheng, M-Pesa codes, pasted spreadsheets); the upper end covers a multi-user web tool. Retainer covers re-running the suite after every model or prompt change and monthly, reviewing the log for retries, rejections and cost, and adding new cases when something odd turns up. Prevents the failures customers notice: a blank reply sent to a buyer, a frozen screen during a Safaricom or KPLC outage, or a customer's phone number left in a log file. One lost bulk order of maize or feed covers the year. |
+| **`day30_ai_assistant/` (Week 6 Capstone, Day 30)** | Agro-Vets & Feed Distributors, Veterinary Clinics, Hardware Depots & Wholesale Suppliers (1 to 30 staff) | **KES 45,000 – 65,000** (one-off setup) | **KES 6,500 / month** | 24/7 customer support assistant grounded in the client's own price list, delivery and payment policies and FAQ, with source citations, English, Swahili and Sheng replies, and a duty-vet referral for sick-animal questions. Setup covers collecting and cleaning the client's real catalog, M-Pesa details, delivery zones and FAQs into `docs/`, branding, testing 20 to 30 of their real customer questions with the owner, and either a double-click install on the shop PC or a Render deployment with a custom domain; the upper end covers PDF or Word price lists, multiple branches or a website embed. Retainer covers hosting, the Claude API cost (about KES 0.03 to 0.08 per answer, so even 3,000 questions a month stay under KES 250), updating prices and policies in the documents whenever they change, monthly log review for unanswered questions, and model updates. Takes 30 to 60 repetitive calls and WhatsApps a day off the counter staff (2 to 3 staff hours a day) and stops wrong prices being quoted; one extra bulk feed order captured after hours covers the month. |
