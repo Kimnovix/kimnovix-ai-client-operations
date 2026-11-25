@@ -1,6 +1,6 @@
 # Kimnovix AI & Client Operations Portfolio
 
-API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, AI document Q&A for contracts, multi-step AI research briefs, a client-installable AI complaint responder package, and a 24/7 knowledge-base support assistant for agro-vets built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
+API-powered Python command-line tools, AI automated workflows, full-stack web applications, web scrapers, local file automation scripts, automated email reporting, self-healing scheduled jobs, daily stock alerts, AI document Q&A for contracts, multi-step AI research briefs, a client-installable AI complaint responder package, a 24/7 knowledge-base support assistant for agro-vets, and a scoped weekly livestock production and feed-cost digest client project, built for field operations, veterinary clinics, agribusiness procurement, and enterprise integration in Kenya.
 
 ## Live Deployed Applications (Render Cloud)
 
@@ -36,6 +36,7 @@ Domains covered:
 - **Legal, Procurement & Contract Intelligence:** a PDF and Word document Q&A tool that answers questions about supply contracts with page citations, exports a Word Q&A report, and indexes whole folders of PDFs.
 - **Marketing, Strategy & Agribusiness Research:** a three-step AI pipeline (research, summarize, format) that turns one topic, such as M-Pesa trends among Nairobi SMEs or Rift Valley farm financing, into a two-paragraph client brief, and never pays twice for a step that already finished.
 - **Agro-Vet Customer Support:** a 24/7 chat assistant for an Eldoret agro-vet and feed store that answers price, bulk discount, M-Pesa, delivery and returns questions in English, Swahili or Sheng from the shop's own documents, cites the file every fact came from, and sends sick-animal questions to the duty vet.
+- **Livestock Production Reporting (Week 7 client project):** a Monday 7:00 AM digest for a commercial breeding and grower unit that turns daily section headcount, mortality and feed-issue records into exact KPIs, week-on-week changes and threshold alerts, with a short management summary written from the checked numbers.
 - **Web Applications & Cloud Deployment:** Flask servers under Gunicorn on Render, CORS-enabled JSON endpoints, and asynchronous JavaScript (`fetch`) dashboards.
 
 ## Week 1: API Integrations & Automation
@@ -552,6 +553,43 @@ What it shows: settings errors are reported together and Render's environment ov
 
 ---
 
+## Week 7: Client Project
+
+Week 7 builds one realistic client engagement end to end: the core engine on Day 32, the email report and scheduling on Days 33 to 34, and the handover on Day 35. The client is a sample business, **Nova Highlands Livestock Ltd** (Commercial Breeding & Grower Unit, Uasin Gishu County); all herd and feed figures are illustrative.
+
+- **`week7/weekly_livestock_core.py` + `week7/sample_weekly_operations.csv` (Day 32: Building the Core, data engine and AI summary):** the deterministic core of the digest: CSV in, exact KPIs out, then a checked 3-part management summary from Claude.
+  - **Loads the agreed 11-column daily CSV:** UTF-8, UTF-8 with BOM, Windows-1252 or UTF-16; comma or semicolon; `DD/MM/YYYY` dates and `1,200 kg` / `KES 84,000` style numbers. One file, several files, or a whole folder are merged.
+  - **Never guesses a number:** each bad row (blank or unreadable value, `N/A`, `NaN`, negative, decimal headcount, unknown section, future date, feed shillings with zero kg, more exits than animals) is skipped and listed by file and line. Every copy of a duplicated day and section is excluded. Headcounts that do not carry over from one day to the next, feed prices outside KES 20 to 150 per kg, and missing days are flagged as warnings.
+  - **Picks the week itself:** the last complete Monday-to-Sunday week in Kenyan time and the week before it, or any week with `--week-ending`. A week with no rows gives a "No data received for week 2026-W48" notice and does not call Claude.
+  - **KPIs in `Decimal` with `ROUND_HALF_UP`:** animals at risk, weekly mortality %, head-days, feed kg and KES per head per day, average feed price per kg and week-on-week change ("n/a" in the first week), per section and farm-wide, with KES to the whole shilling and ratios to 2 decimal places. Mortality, feed-use (+/-10%), feed-price (+/-5%) and data-quality flags use default thresholds the farm manager and vet confirm before go-live.
+  - **Claude sees KPI JSON only:** `claude-haiku-5-5` at `effort: low` writes the summary from computed figures; the `notes` column is dropped at load time and never leaves the PC. Every `KES` and `%` figure in the reply is checked against the JSON, and a reply with a wrong figure, a missing heading, more than 250 words or anything that looks like a dose is dropped. The KPI report still prints with "AI summary unavailable this week."
+  - **Reliability carried over from Week 6:** 1 s / 2 s / 4 s backoff with `Retry-After` (capped at 30 s), SDK retries switched off so they do not stack, a one-time thread-safe switch to `claude-haiku-4-5-20251001` on a 404, one fallback call after a refusal or empty reply, and every token of failed and dropped calls costed in KES.
+  - **Sample data:** two invented weeks (9 to 22 November 2026) for 4 sections with reconciling headcounts, a weaner mortality rise, a weaner feed-use rise, a grower feed price rise and 2 planted bad rows.
+  - **14-check offline self-test** with zero API calls: hand-checked KPIs to the shilling, three file encodings, every rejection and warning rule, empty and no-data weeks, the first week, request settings, the figure check, backoff, the 404 fallback under 4 threads, refusal costing, prompt fencing, rounding and log privacy.
+
+### Weekly KPI Core Engine Notes (Day 32)
+
+**Why the core is built before the email:** the email, the scheduler and the setup guide all only carry numbers. If the numbers are wrong, everything after them is wrong faster. Day 32 proves the numbers first: two sample weeks load, every rule in the data contract has a test row that triggers it, and the KPIs match a hand calculation to the shilling.
+
+**Why a clerk's mistake does not become a manager's decision:** a row the tool cannot trust is left out and listed by file and line, the way a cashier sets aside a torn note instead of guessing its value. The Monday reader sees what was left out and why, and the clerk knows exactly which line to fix.
+
+**Why Claude's figures are checked:** the summary is written by a language model, and a language model can copy a number wrongly. Code pulls every `KES` and `%` figure out of the reply and looks for it in the KPI JSON. One figure that is not there and the whole summary is dropped for that week. Losing a summary costs nothing; a manager acting on a made-up mortality rate could cost animals.
+
+**What it costs to run:** the KPI JSON for 4 sections is about 2,000 input tokens and the reply 600 to 1,000 output tokens including thinking, roughly **KES 0.05 to 0.09 per weekly report** on Claude Haiku 5.5 ($0.10 / $0.50 per million input / output tokens, KES 129.50 to the dollar). The Haiku 4.5 fallback ($1 / $5) costs about 10 times more. A refusal followed by a fallback call is still under KES 1.10.
+
+**Technical notes**
+
+- **No `temperature`, `top_p` or `top_k`:** the current API rejects them. Haiku 5.5 runs at `output_config={"effort": "low"}` with `max_tokens=2000`, because its thinking counts toward that limit; Haiku 4.5 gets no effort setting. Only `text` blocks are read; `refusal`, `max_tokens` and empty replies are treated as a failed summary.
+- **Retries belong to the script:** the client is built with `max_retries=0`, so the SDK's own retries do not multiply the 1 s / 2 s / 4 s schedule. 408, 409, 429, 5xx and dropped connections are retried; 400, 401 and 403 are not.
+- **Kenyan time without extra packages:** the week is chosen in EAT using a fixed +03:00 offset (Kenya has no daylight saving), so nothing depends on the `tzdata` package that `zoneinfo` needs on Windows.
+- **Farm-wide animals at risk** are the 4 sections' Monday openings plus live births. Transfers between sections are moves, not new animals, so they are counted per section but not twice for the whole farm.
+- **Privacy-safe log:** `week7/core.log` records the ISO week, row and flag counts, model, API calls, tokens and KES API cost. It never holds herd figures, feed figures, notes or summary text, and it rotates at about 1 MB.
+- **Day 32 scope:** email, HTML layout, `config.env` and Task Scheduler are Days 33 and 34. The thresholds are constants at the top of the script until then.
+
+**Status:** Day 32 data engine and AI summary complete; 14/14 self-test checks pass with no API calls.
+
+---
+
 ## Setup & Installation
 
 1. Clone the repository:
@@ -1047,6 +1085,45 @@ Offline preview matched 2 knowledge-base section(s):
 ```
 *(The log holds a hash and the length of each question, never the words. In the browser, each answer shows its sources, model, response time and estimated KES cost underneath.)*
 
+
+### Running Week 7 Livestock KPI Core (Day 32)
+```bash
+# Day 32: test offline, preview the KPIs, then one live summary
+python week7/weekly_livestock_core.py --self-test                                  # 14 checks, no API cost
+python week7/weekly_livestock_core.py --week-ending 2026-11-22 --dry-run           # KPI report only, Claude not called
+python week7/weekly_livestock_core.py --week-ending 2026-11-22 --dry-run --show-json   # plus the exact JSON Claude would receive
+python week7/weekly_livestock_core.py --week-ending 2026-11-22                     # one live summary (about KES 0.05 to 0.09)
+python week7/weekly_livestock_core.py --csv D:\FarmData                            # merge every CSV in a folder, last complete week
+```
+Without `--week-ending`, the tool reports the last complete Monday-to-Sunday week before today, so the sample file only matches that default in the week it was dated for; later runs correctly say "No data received".
+
+**Day 32 Example Output (`--week-ending 2026-11-22 --dry-run`, abridged):**
+```text
+NOVA HIGHLANDS LIVESTOCK LTD - WEEKLY KPI REPORT 2026-W47
+Week 2026-11-16 to 2026-11-22
+
+FARM-WIDE
+             Mort %  kg/hd/d      Feed cost  KES/hd/d   KES/kg
+FARM          0.55%     1.81  KES 1,432,656     96.84    53.64
+  vs last   +96.43%   +1.69%         +5.93%    +5.67%   +4.16%
+
+FLAGS (4)
+  * MORTALITY ALERT: WEANER weekly mortality 1.50% is above the 1.00% threshold (7 deaths of 468 animals at risk)
+  * FEED USE WATCH: WEANER feed per head per day changed +12.50% week on week (limit +/-10.00%)
+  * FEED PRICE WATCH: GROWER average feed price changed +6.67% week on week (limit +/-5.00%)
+  * DATA QUALITY ALERT: 2 row(s) rejected
+
+DATA QUALITY
+  Rejected  - sample_weekly_operations.csv line 45: unknown section 'OFFICE'
+  Rejected  - sample_weekly_operations.csv line 46: feed_kg 'N/A' is not a number
+```
+
+**Day 32 Example Log Line (`week7/core.log`):**
+```text
+2026-11-25 21:02:21 | INFO | ok_dry_run week=2026-W47 files=1 rejected=2 duplicates=0 warnings=0 flags=4
+```
+*(The log holds counts, model, tokens and KES API cost, never herd or feed figures. A live run also prints a `[Telemetry]` line with model, API calls, tokens and estimated KES cost.)*
+
 ---
 
 ## Commercial Pricing & Kenyan SME Market Valuation
@@ -1067,3 +1144,4 @@ Offline preview matched 2 knowledge-base section(s):
 | **`day28_complaint_responder/` (Week 6, Day 28)** | Courier Companies, E-Commerce Shops, Airbnbs, Veterinary Clinics, Restaurants & Hardware Depots (1 to 20 staff) | **KES 35,000** (one-off setup) | **KES 4,500 / month** | The Week 4 responder as an installable package on the client's own PC and Anthropic account. Setup covers installing Python and the package, writing `config.env` with the client's real refund and escalation policy, testing 10 of their real past complaints with the owner, and training front-desk staff. Retainer covers model updates when models are released or retired, policy and tone tuning, monthly log checks, and up to 2,500 drafts a month (about KES 0.02 to 0.05 each on Haiku 5.5, so even 2,500 drafts cost under KES 125). Saves 10 to 15 minutes per difficult complaint (about 12 supervisor hours a month at 15 a week) and prevents the defensive reply or unapproved refund that loses a regular customer. |
 | **`day29_testing_and_reliability.py` (Week 6, Day 29)** | Any SME running an AI tool for customers: Agro-Dealers & Grain Stores, Courier Companies, Clinics, SACCOs, E-Commerce Shops (including existing Day 20, 26, 27 and 28 clients) | **KES 18,000 – 25,000** (one-off setup) | **KES 3,000 / month** | Reliability hardening and an automated QA suite for an AI tool the client already uses. Setup covers adding input checks, 1/2/4-second backoff, model fallback, blank-reply guards and a privacy-safe log to their tool, and building an edge-case suite from 10 to 20 of their own real messages (Swahili, Sheng, M-Pesa codes, pasted spreadsheets); the upper end covers a multi-user web tool. Retainer covers re-running the suite after every model or prompt change and monthly, reviewing the log for retries, rejections and cost, and adding new cases when something odd turns up. Prevents the failures customers notice: a blank reply sent to a buyer, a frozen screen during a Safaricom or KPLC outage, or a customer's phone number left in a log file. One lost bulk order of maize or feed covers the year. |
 | **`day30_ai_assistant/` (Week 6 Capstone, Day 30)** | Agro-Vets & Feed Distributors, Veterinary Clinics, Hardware Depots & Wholesale Suppliers (1 to 30 staff) | **KES 45,000 – 65,000** (one-off setup) | **KES 6,500 / month** | 24/7 customer support assistant grounded in the client's own price list, delivery and payment policies and FAQ, with source citations, English, Swahili and Sheng replies, and a duty-vet referral for sick-animal questions. Setup covers collecting and cleaning the client's real catalog, M-Pesa details, delivery zones and FAQs into `docs/`, branding, testing 20 to 30 of their real customer questions with the owner, and either a double-click install on the shop PC or a Render deployment with a custom domain; the upper end covers PDF or Word price lists, multiple branches or a website embed. Retainer covers hosting, the Claude API cost (about KES 0.03 to 0.08 per answer, so even 3,000 questions a month stay under KES 250), updating prices and policies in the documents whenever they change, monthly log review for unanswered questions, and model updates. Takes 30 to 60 repetitive calls and WhatsApps a day off the counter staff (2 to 3 staff hours a day) and stops wrong prices being quoted; one extra bulk feed order captured after hours covers the month. |
+| **`week7/` Weekly Livestock Production & Feed Cost AI Executive Digest (Week 7 Client Project, Days 32 to 35)** | Commercial Pig, Dairy & Poultry Units, Breeding & Grower Farms, Feedlots (3 to 6 sections, 2 to 5 managers) | **KES 30,000** (one-off build, 50% deposit / 50% on handover, 30-day warranty) | **KES 4,000 / month** (optional) | Monday 7:00 AM email that turns daily section headcount, mortality and feed records into exact KPIs, week-on-week changes and threshold alerts, with a short AI management summary checked figure-by-figure against the computed numbers. Setup covers agreeing the CSV columns and alert thresholds with the farm manager and vet, configuring recipients and Gmail, installing the scheduled task on the office PC, and a live handover. Retainer covers API usage up to KES 100 a month (actual cost is under KES 1), a monthly log check, re-testing after model updates, threshold tuning and up to 1 hour of small changes a month. Saves about 10 supervisor hours a month, but is priced on loss prevention: a feed-use problem or mortality cluster caught one week earlier on a commercial unit is worth more than the whole build. |

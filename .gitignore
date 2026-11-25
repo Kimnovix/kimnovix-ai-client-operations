@@ -60,3 +60,22 @@ week6/day30_ai_assistant/logs/*.log
 week6/day30_ai_assistant/logs/*.log.*
 week6/day30_ai_assistant/venv/
 week6/day30_ai_assistant/.venv/
+
+# Week 7 livestock digest (client settings, farm data and runtime files; the CSV template and sample weeks stay tracked)
+week7/**/config.env
+week7/**/config.env.txt
+week7/**/logs/
+week7/**/state/
+week7/**/preview/
+week7/**/venv/
+week7/**/data/*.csv
+!week7/**/data/nova_weekly_ops_template.csv
+!week7/**/data/sample_week_*.csv
+
+# Week 7 Day 32 core engine (runtime log and temp files; the script and sample CSV stay tracked)
+week7/core.log
+week7/core.log.*
+week7/*.tmp
+
+# Client project briefs (direct client correspondence; kept local)
+week7/*_project_brief.md
