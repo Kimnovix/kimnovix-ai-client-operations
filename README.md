@@ -567,6 +567,16 @@ Week 7 builds one realistic client engagement end to end: the core engine on Day
   - **Sample data:** two invented weeks (9 to 22 November 2026) for 4 sections with reconciling headcounts, a weaner mortality rise, a weaner feed-use rise, a grower feed price rise and 2 planted bad rows.
   - **14-check offline self-test** with zero API calls: hand-checked KPIs to the shilling, three file encodings, every rejection and warning rule, empty and no-data weeks, the first week, request settings, the figure check, backoff, the 404 fallback under 4 threads, refusal costing, prompt fencing, rounding and log privacy.
 
+- **`week7/weekly_livestock_digest.py` + `week7/config.env.example` (Day 33: Completing and Testing, email digest, settings file and Monday schedule):** wraps the Day 32 core without re-implementing the loader or the KPI math, and turns its result into the Monday 7:00 AM email.
+  - **Settings move out of the code:** `config.env` holds `SECTIONS`, `MORTALITY_ALERT_PCT`, `FEED_USE_WATCH_PCT`, `FEED_PRICE_WATCH_PCT`, `FEED_PRICE_MIN_KES` and `FEED_PRICE_MAX_KES` under the same names as the Day 32 constants, plus the client name, data path, API key, Gmail login, recipients and send time. It reads UTF-8, UTF-8 with BOM, UTF-16 and Windows-1252, spots a Notepad `config.env.txt`, resolves a relative `DATA_PATH` from the `week7/` folder, and lists every problem in one message (placeholders, a typo in an email address, a missing data folder, a threshold listed twice, a section called `FARM`). A misspelt setting name is reported as a warning instead of being silently ignored.
+  - **Email built strictly from the computed report:** a multipart HTML + plain-text email whose tables come only from `ReportResult.report`. Subject line shows the alert count and the week's feed spend. When the AI summary is unavailable or dropped, the full KPI email still goes out with "AI summary unavailable this week." A week with no rows sends a short `[NO DATA]` notice and does not call Claude.
+  - **Safe headers:** recipients (1 to 20, comma or semicolon separated) are validated and de-duplicated; line breaks and control characters are stripped from the client name, sender name and subject, so no setting can add a hidden `Bcc:`. Every email carries `Date` and `Message-ID`, built from the Gmail domain rather than the PC's network name.
+  - **Gmail delivery that knows when to stop:** SSL on port 465 (STARTTLS on 587 also works). Dropped connections and 4xx replies are retried after 2 s and 4 s. A wrong App Password, all recipients refused, a 5xx reply or a failed certificate check stop at once with a plain-English fix. If Gmail accepts the message and the connection drops while hanging up, it is not sent again. Addresses Gmail refuses while delivering to the rest are counted and reported.
+  - **One digest per week, no overlaps:** `week7/digest_state.json` records each sent ISO week with an atomic temp-file write (no fallback copy that would never be read back); `--dry-run` never touches it; `--force` resends. A no-data notice does not block the real report: if the clerk saves the CSV at 08:30, the next scheduled retry sends the full digest. An OS file lock (`week7/digest.lock`) stops a manual run and the scheduled task from sending at the same moment.
+  - **Monday 07:00 EAT schedule:** `--install-task` registers a Windows Task Scheduler job (pythonw.exe, so no console window to close), pinned to +03:00 so it fires at 07:00 Kenyan time whatever the PC's clock zone, retrying every 30 minutes for 4 hours, catching up 3 minutes after logon and when the PC was off (`StartWhenAvailable`), and running on battery. On Linux it prints crontab lines pinned to `Africa/Nairobi`.
+  - **Privacy-safe files:** `week7/digest.log` and `week7/digest_state.json` hold only the ISO week, counts, status, model, tokens and KES API cost. No herd or feed figures, notes, email addresses or summary text.
+  - **30-check offline self-test:** runs all 14 Day 32 core checks (counted, and the run fails if none ran) plus 16 digest checks, with real SMTP connections and real Anthropic clients blocked.
+
 ### Weekly KPI Core Engine Notes (Day 32)
 
 **Why the core is built before the email:** the email, the scheduler and the setup guide all only carry numbers. If the numbers are wrong, everything after them is wrong faster. Day 32 proves the numbers first: two sample weeks load, every rule in the data contract has a test row that triggers it, and the KPIs match a hand calculation to the shilling.
@@ -587,6 +597,29 @@ Week 7 builds one realistic client engagement end to end: the core engine on Day
 - **Day 32 scope:** email, HTML layout, `config.env` and Task Scheduler are Days 33 and 34. The thresholds are constants at the top of the script until then.
 
 **Status:** Day 32 data engine and AI summary complete; 14/14 self-test checks pass with no API calls.
+
+### Weekly Digest Notes (Day 33)
+
+**Why the settings file matters:** the farm manager and the vet agree the alert thresholds, and they will change them. A weaner mortality limit sitting inside Python means a developer visit for a one-number change. In `config.env` it is one line in Notepad, and `--check-config` tells them straight away if they typed `WEANER:1,00` or misspelt a setting.
+
+**Why the email never depends on Claude:** the KPI tables are built from the computed report and nothing else. The AI summary is a bonus paragraph on top. If Claude is down, out of credit or writes a wrong figure, the managers still get every number on Monday morning, with one line saying the summary is missing this week. Think of the summary as the cover note on a lab report: losing the note is an inconvenience; losing the lab results is not acceptable.
+
+**Why a no-data notice does not end the week:** a Monday with no CSV usually means the clerk exported late, not that the farm stopped. The notice goes out once so the manager knows to chase it, and the real digest follows on the next retry once the file is there. Recording the notice as "sent for the week" would have kept the managers waiting until the following Monday.
+
+**Why the retries are picky:** a dropped Safaricom connection gets another try 2 and 4 seconds later. A wrong App Password, a rejected address or a certificate failure never fixes itself, so retrying only delays the message the admin needs to see. And once Gmail has the email, a hiccup while hanging up must not send it twice; managers stop trusting a report that arrives in duplicate.
+
+**What it costs to run:** one weekly email is one Claude call: about 2,700 input and 550 output tokens, roughly **KES 0.07 per week** on Claude Haiku 5.5 (a measured live send cost KES 0.0695). Gmail SMTP is free. Under KES 5 a year in API cost per farm.
+
+**Technical notes**
+
+- **Reuses the core, does not copy it:** `apply_core_config()` sets the Day 32 module values (`SECTIONS`, thresholds, client name in the system prompt) from `config.env` for one run and restores them afterwards, so the core's own `--self-test` still checks the default contract.
+- **Settings without side effects:** `config.env` is parsed with `dotenv_values` (nothing is written into `os.environ`) and with interpolation off, so a `$` in a password stays a `$`.
+- **Scheduled mode:** `--scheduled` waits until the Monday send time, then sends the last complete week if it has not gone yet. A logon on Tuesday after a weekend power cut therefore sends Monday's digest and logs how late it was (`late_by=26h15m`).
+- **Unexpected errors are logged:** under pythonw.exe there is no console, so any unexpected failure is written to `digest.log` as its error type (never its text) with exit code 3.
+- **Exit codes:** 0 sent, previewed or correctly skipped; 1 settings or input error; 2 email delivery failed (the HTML preview is still saved); 3 unexpected error.
+- **Runtime files are ignored by Git:** `week7/config.env`, `week7/config.env.txt`, `week7/digest.log*`, `week7/digest_state.json`, `week7/digest.lock` and `week7/digest_preview*.html`.
+
+**Status:** Day 33 digest complete; 30/30 self-test checks pass with no API or SMTP calls. Day 34 covers the client setup guide and live install.
 
 ---
 
@@ -633,8 +666,11 @@ Week 7 builds one realistic client engagement end to end: the core engine on Day
    python week6/day29_testing_and_reliability.py --self-test
    python week6/day30_ai_assistant/pipeline.py --self-test
    python week6/day30_ai_assistant/app.py --check-config
+   python week7/weekly_livestock_core.py --self-test
+   python week7/weekly_livestock_digest.py --self-test
+   python week7/weekly_livestock_digest.py --check-config
    ```
-   Day 28 reads its own `week6/day28_complaint_responder/config.env` (copy it from `config.env.example`), not the root `.env`. Day 30 reads its own `week6/day30_ai_assistant/.env` (copy it from `.env.example`, or let `run.bat` do it).
+   Day 28 reads its own `week6/day28_complaint_responder/config.env` (copy it from `config.env.example`), not the root `.env`. Day 30 reads its own `week6/day30_ai_assistant/.env` (copy it from `.env.example`, or let `run.bat` do it). Day 33 reads its own `week7/config.env` (copy it from `week7/config.env.example`).
 
 ---
 
@@ -1123,6 +1159,52 @@ DATA QUALITY
 2026-11-25 21:02:21 | INFO | ok_dry_run week=2026-W47 files=1 rejected=2 duplicates=0 warnings=0 flags=4
 ```
 *(The log holds counts, model, tokens and KES API cost, never herd or feed figures. A live run also prints a `[Telemetry]` line with model, API calls, tokens and estimated KES cost.)*
+
+### Running Week 7 Weekly Digest (Day 33)
+```powershell
+# Day 33: test offline, set up config.env, preview, send once, then schedule
+python week7\weekly_livestock_digest.py --self-test                                # 30 checks, no API or SMTP calls
+Copy-Item week7\config.env.example week7\config.env                               # then fill in key, Gmail and recipients
+python week7\weekly_livestock_digest.py --check-config                             # lists every setting to fix in one go
+python week7\weekly_livestock_digest.py --week-ending 2026-11-22 --dry-run         # HTML preview only, no Claude, no email, no state
+python week7\weekly_livestock_digest.py --week-ending 2026-11-22 --to you@yourmail.com   # one real send to yourself first
+python week7\weekly_livestock_digest.py --week-ending 2026-11-22                   # send to REPORT_RECIPIENTS (once per week)
+python week7\weekly_livestock_digest.py --week-ending 2026-11-22 --force           # resend a week on purpose
+python week7\weekly_livestock_digest.py --install-task                             # Monday 07:00 EAT task (Linux: prints crontab lines)
+python week7\weekly_livestock_digest.py --status                                   # last send and last 5 log lines
+python week7\weekly_livestock_digest.py --uninstall-task                           # remove the scheduled task
+```
+Other options: `--csv D:\FarmData` overrides `DATA_PATH`, `--time 8am` overrides `SCHEDULE_TIME` for one run, `--config` points at another settings file. On Linux/macOS use forward slashes and `cp` instead of `Copy-Item`.
+
+**Day 33 Example Output (`--check-config`, then `--dry-run`):**
+```text
+[OK] Configuration valid for 'Nova Highlands Livestock Ltd'.
+     Sections   : BREEDING, FARROWING, WEANER, GROWER
+     Data Path  : C:\...\week7\sample_weekly_operations.csv
+     Recipients : 3 manager(s)
+     Schedule   : Mondays at 07:00 EAT
+[DRY_RUN] Preview saved to 'C:\...\week7\digest_preview.html'. No email sent (--dry-run).
+[PREVIEW] C:\...\week7\digest_preview.html
+```
+Email subject for the sample week: `[4 ALERTS] Nova Highlands Livestock Ltd Weekly Digest 2026-W47 - KES 1,432,656`
+
+**Day 33 Example Config Error (placeholders left in `config.env`):**
+```text
+[CONFIGURATION ERROR]
+Please fix the following setting(s) in config.env:
+  - ANTHROPIC_API_KEY is missing or still a placeholder. Paste your real key in config.env.
+  - GMAIL_ADDRESS is still the example address. Use the farm's real Gmail account.
+  - GMAIL_APP_PASSWORD is missing or still a placeholder. Create a 16-character Gmail App Password (with 2-Step Verification enabled) and paste it in config.env.
+  - REPORT_RECIPIENTS still has example address(es): manager@example.com, finance@example.com, supervisor@example.com. Replace them with the managers' real emails.
+```
+
+**Day 33 Example Log Lines (`week7/digest.log`):**
+```text
+2026-11-23 07:00:41 | INFO | OK sent week=2026-W47 has_data=True recipients=3 flags=4 rejected=2 ai_status=ok model=claude-haiku-5-5 tokens=2675/539 cost_kes=0.0695 smtp_attempts=1 refused=0 trigger=scheduled
+2026-11-23 07:30:12 | INFO | SKIPPED duplicate week=2026-W47 trigger=scheduled
+```
+*(Counts, status, model, tokens and KES API cost only. No herd or feed figures, email addresses or summary text.)*
+
 
 ---
 

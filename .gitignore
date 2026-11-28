@@ -79,3 +79,12 @@ week7/*.tmp
 
 # Client project briefs (direct client correspondence; kept local)
 week7/*_project_brief.md
+
+# Week 7 Day 33 weekly digest (client settings and runtime files; the script and config.env.example stay tracked)
+week7/config.env
+week7/config.env.txt
+week7/digest.log
+week7/digest.log.*
+week7/digest_state.json
+week7/digest.lock
+week7/digest_preview*.html
